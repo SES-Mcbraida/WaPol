@@ -1,120 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Team Roster Viewer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <!-- SheetJS for reading Excel -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    body { font-family: Arial,sans-serif; background:#e7effa; color:#333; padding:1rem; }
+    h1 { text-align:center; margin-bottom:1rem; }
+    .legend, .controls { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:1rem; }
+    .legend-item, .controls select, .controls input, .controls button {
+      padding:4px 8px; font-size:.85rem; border-radius:4px; border:1px solid #888;
+    }
+    table { width:100%; border-collapse:collapse; margin-top:1rem; }
+    th, td { border:1px solid #aaa; padding:6px; text-align:center; font-size:.85rem; }
+    th { background:#003366; color:#fff; position:sticky; top:0; z-index:1; }
+    /* shift colours */
+    .shift-6   { background:#c0ffc0 }
+    .shift-15  { background:#b3d9ff }
+    .shift-16  { background:#add8e6 }
+    .shift-17  { background:#e3b3ff }
+    .shift-18  { background:#d3d3ff }
+    .shift-X   { background:#f5f5f5 }
+    .shift-AL  { background:#ffff99 }
+    .shift-CT  { background:#ffcc66 }
+    .shift-T   { background:#dda0dd }
+    .shift-RDO { background:#ffcccc }
+    .shift-LSL { background:#ccffcc }
+    .shift-RS  { background:#99ccff }
+    #status { text-align:center; font-weight:bold; margin-top:.5rem; }
+  </style>
+</head>
+<body>
+  <h1>Team Roster Viewer</h1>
+
+  <div class="legend">
+    <div class="legend-item shift-6">6—Day (06:00–16:00)</div>
+    <div class="legend-item shift-15">15—Afternoon (15:00–01:00)</div>
+    <div class="legend-item shift-16">16—Late (16:00–02:00)</div>
+    <div class="legend-item shift-17">17—Evening (17:00–03:00)</div>
+    <div class="legend-item shift-18">18—Night (18:00–07:00)</div>
+    <div class="legend-item shift-X">X—Off</div>
+    <div class="legend-item shift-AL">AL—Annual Leave</div>
+    <div class="legend-item shift-CT">CT—Court</div>
+    <div class="legend-item shift-T">T—Training</div>
+    <div class="legend-item shift-RDO">RDO—Off</div>
+    <div class="legend-item shift-LSL">LSL—Long Service</div>
+    <div class="legend-item shift-RS">RS—Regional Shield</div>
+  </div>
+
+  <div class="controls">
+    <label>Team:
+      <select id="teamFilter"><option value="">All Teams</option></select>
+    </label>
+    <label>Emp No:
+      <input id="empFilter" type="text" placeholder="e.g. 204140">
+    </label>
+    <label>Start:
+      <input id="startDate" type="date">
+    </label>
+    <label>End:
+      <input id="endDate" type="date">
+    </label>
+    <button id="reloadBtn">Reload</button>
+  </div>
+
+  <div id="status"></div>
+  <table>
+    <thead id="thead"></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
 <script>
 (async()=>{
-  // 1) load the two workbooks
-  const [rBuf, oBuf] = await Promise.all([
-    fetch('roster_template_final.xlsx').then(r=>r.arrayBuffer()),
-    fetch('overrides.xlsx').then(r=>r.arrayBuffer())
-  ]);
-  const rWb = XLSX.read(rBuf,{type:'array'}),
-        oWb = XLSX.read(oBuf,{type:'array'}),
-        roster  = XLSX.utils.sheet_to_json(rWb.Sheets['Roster'],{header:1}),
-        pattern = XLSX.utils.sheet_to_json(rWb.Sheets['RotationPattern'],{header:1}),
-        overrides= XLSX.utils.sheet_to_json(oWb.Sheets[oWb.SheetNames[0]],{header:1});
+  try {
+    // 1. Load workbooks from root
+    const [rB, oB] = await Promise.all([
+      fetch('roster_template_final.xlsx').then(r=>r.arrayBuffer()),
+      fetch('overrides.xlsx').then(r=>r.arrayBuffer())
+    ]);
+    const rWb = XLSX.read(rB,{type:'array'}),
+          oWb = XLSX.read(oB,{type:'array'}),
+          roster    = XLSX.utils.sheet_to_json(rWb.Sheets['Roster'],{header:1}),
+          pattern   = XLSX.utils.sheet_to_json(rWb.Sheets['RotationPattern'],{header:1}),
+          overrides = XLSX.utils.sheet_to_json(oWb.Sheets[oWb.SheetNames[0]],{header:1});
 
-  // build override map
-  const ovMap = {};
-  overrides.slice(1).forEach(r=>{
-    const [eno,date,code]=r;
-    ovMap[`${eno}|${date}`]=code;
-  });
-
-  // fill Team dropdown
-  const teams = [...new Set(roster.slice(1).map(r=>r[3]))];
-  const teamSel = document.getElementById('teamFilter');
-  teams.forEach(t=> teamSel.innerHTML += `<option>${t}</option>`);
-
-  // default Start/End to this week (Mon→Sun)
-  const sdInput = document.getElementById('startDate'),
-        edInput = document.getElementById('endDate'),
-        today   = new Date(),
-        dow     = today.getDay(),          // 0=Sun,1=Mon...
-        mon     = new Date(today), 
-        sun     = new Date(today);
-  // compute Monday
-  mon.setDate(today.getDate() - ((dow+6)%7));
-  sun.setDate(mon.getDate() + 6);
-  sdInput.valueAsDate = mon;
-  edInput.valueAsDate = sun;
-
-  // wire up reload button and input changes
-  document.getElementById('reloadBtn').onclick = render;
-  sdInput .addEventListener('change', render);
-  edInput .addEventListener('change', render);
-  teamSel.addEventListener('change', render);
-  document.getElementById('empFilter').addEventListener('input', render);
-
-  // initial render
-  render();
-
-  function render(){
-    const hdr = roster[0],
-          rows= roster.slice(1),
-          team= teamSel.value,
-          empF= document.getElementById('empFilter').value.trim(),
-          sd  = new Date(sdInput.value),
-          ed  = new Date(edInput.value),
-          statusEl = document.getElementById('status');
-
-    // if dates invalid, show warning but still use this week's defaults
-    if (isNaN(sd) || isNaN(ed)) {
-      statusEl.innerText = '⚠️ Pick valid dates; showing current week';
-      sdInput.valueAsDate = mon;
-      edInput.valueAsDate = sun;
-    } else {
-      statusEl.innerText = '';
-    }
-
-    // build date array
-    let dates = [];
-    for (let d = new Date(sdInput.valueAsDate); d <= edInput.valueAsDate; d.setDate(d.getDate()+1)) {
-      dates.push(new Date(d));
-    }
-
-    // render THEAD
-    let thead = '<tr><th>Name</th><th>Emp No.</th><th>QUALIFICATIONS</th><th>Team</th>';
-    dates.forEach(d=>{
-      const dd=String(d.getDate()).padStart(2,'0'),
-            mm=String(d.getMonth()+1).padStart(2,'0');
-      thead += `<th>${dd}/${mm}</th>`;
+    // 2. Build override map
+    const ovMap = {};
+    overrides.slice(1).forEach(r=> {
+      const [eno,date,code] = r;
+      ovMap[`${eno}|${date}`] = code;
     });
-    thead += '</tr>';
-    document.getElementById('thead').innerHTML = thead;
 
-    // constants for week/day lookup
-    const refMon = new Date(2025,5,30), // 30 Jun 2025
-          msDay  = 1000*60*60*24,
-          msWeek = msDay*7;
+    // 3. Populate Team dropdown
+    const teams = Array.from(new Set(roster.slice(1).map(r=>r[3])));
+    const tf = document.getElementById('teamFilter');
+    teams.forEach(t=> tf.innerHTML+=`<option>${t}</option>`);
 
-    // render TBODY
-    let bodyHtml = '';
-    rows
-      .filter(r=> (!team|| r[3]==team) && (!empF|| r[1].toString().includes(empF)))
-      .forEach(r=>{
+    // 4. Default Start/End to current week (Mon→Sun)
+    const sdI = document.getElementById('startDate'),
+          edI = document.getElementById('endDate'),
+          today = new Date(), dow = today.getDay(),
+          mon   = new Date(today), sun = new Date(today);
+    mon.setDate(today.getDate() - ((dow+6)%7));
+    sun.setDate(mon.getDate() + 6);
+    sdI.valueAsDate = mon; edI.valueAsDate = sun;
+
+    // 5. Wire controls
+    const reload = document.getElementById('reloadBtn');
+    [reload, tf, document.getElementById('empFilter'), sdI, edI]
+      .forEach(el=> el.addEventListener('change', render));
+    render();
+
+    // render function
+    function render(){
+      const [hdr, ...rows] = roster,
+            team = tf.value,
+            empF = document.getElementById('empFilter').value.trim(),
+            sd = new Date(sdI.value), ed = new Date(edI.value),
+            status = document.getElementById('status');
+
+      // Validate dates
+      if (isNaN(sd)||isNaN(ed)||ed<sd){
+        status.innerText = '⚠️ Please pick a valid Start ≤ End date.';
+      } else {
+        status.innerText = '';
+      }
+
+      // Build date list
+      let dates=[];
+      for(let d=new Date(sd); d<=ed; d.setDate(d.getDate()+1)){
+        dates.push(new Date(d));
+      }
+
+      // THEAD
+      let ths = '<tr><th>Name</th><th>Emp No.</th><th>QUALIFICATIONS</th><th>Team</th>';
+      dates.forEach(d=>{
+        const dd=String(d.getDate()).padStart(2,'0'),
+              mm=String(d.getMonth()+1).padStart(2,'0');
+        ths+=`<th>${dd}/${mm}</th>`;
+      });
+      ths+='</tr>';
+      document.getElementById('thead').innerHTML = ths;
+
+      // Constants for pattern lookup
+      const refMon = new Date(2025,5,30),
+            msDay  = 1000*60*60*24;
+
+      // TBODY
+      let body='';
+      rows.filter(r=>
+        (!team || r[3]==team) &&
+        (!empF || String(r[1]).includes(empF))
+      ).forEach(r=>{
         let tr = `<tr>
-          <td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td>`;
+          <td>${r[0]}</td>
+          <td>${r[1]}</td>
+          <td>${r[2]}</td>
+          <td>${r[3]}</td>`;
         dates.forEach(d=>{
           const dd=String(d.getDate()).padStart(2,'0'),
                 mm=String(d.getMonth()+1).padStart(2,'0'),
                 iso=`2025-${mm}-${dd}`,
-                ovKey = `${r[1]}|${iso}`,
-                ov = ovMap[ovKey];
-
-          let code = ov || '';
-          if (!ov) {
-            // calculate week index and day-of-week index
-            const daysSince = Math.floor((d - refMon)/msDay),
-                  wk  = (Math.floor(daysSince/7) % 5) + 1,
-                  dow = d.getDay()==0?7:d.getDay(),  // 1=Mon…7=Sun
-                  pat = pattern[wk][dow];
-            code = pat;
-          }
-          tr += `<td class="shift-${code}">${code}</td>`;
+                key=`${r[1]}|${iso}`,
+                ov = ovMap[key],
+                code = ov || (()=> {
+                  const daysSince = Math.floor((d - refMon)/msDay),
+                        wk = (Math.floor(daysSince/7)%5)+1,
+                        dow = d.getDay()||7,
+                        pat = pattern[wk][dow];
+                  return pat;
+                })();
+          tr+=`<td class="shift-${code}">${code}</td>`;
         });
-        tr += '</tr>';
-        bodyHtml += tr;
+        tr+='</tr>';
+        body+=tr;
       });
-
-    document.getElementById('tbody').innerHTML = bodyHtml;
+      document.getElementById('tbody').innerHTML = body;
+    }
+  }
+  catch(err){
+    console.error(err);
+    document.getElementById('status').innerText = '❌ Load error: see console';
   }
 })();
 </script>
+</body>
+</html>
