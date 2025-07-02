@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Roster Viewer</title>
+  <title>Team Roster Viewer</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -12,17 +12,21 @@
       text-align: center;
     }
     h1 {
-      margin-bottom: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    input[type="date"] {
+      margin: 10px;
+      padding: 5px;
     }
     table {
       margin: 2rem auto;
       border-collapse: collapse;
-      width: 90%;
+      width: 95%;
       background-color: #fff;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
     th, td {
-      padding: 10px;
+      padding: 8px;
       border: 1px solid #ccc;
       text-align: center;
     }
@@ -30,49 +34,97 @@
       background-color: #0059b3;
       color: white;
     }
+    .shift-6     { background-color: #d6f5d6; }  /* Day */
+    .shift-15    { background-color: #cce5ff; }  /* Afternoon */
+    .shift-16    { background-color: #99ccff; }  /* Late */
+    .shift-17    { background-color: #e0ccff; }  /* Evening */
+    .shift-18    { background-color: #f2f2f2; }  /* Night */
+    .shift-X     { background-color: #ffcccb; }  /* Day Off */
+    .legend-box {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .legend-item {
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 0.9rem;
+    }
   </style>
 </head>
 <body>
   <h1>Team Roster Viewer</h1>
-  <p><em>Auto-loading roster file from repository...</em></p>
-  <div id="table-container">Loading...</div>
+  <label for="start-date">Start Date:</label>
+  <input type="date" id="start-date">
+  <div class="legend-box">
+    <span class="legend-item shift-6">6 – Day</span>
+    <span class="legend-item shift-15">15 – Afternoon</span>
+    <span class="legend-item shift-16">16 – Late</span>
+    <span class="legend-item shift-17">17 – Evening</span>
+    <span class="legend-item shift-18">18 – Night</span>
+    <span class="legend-item shift-X">X – Day Off</span>
+  </div>
+  <div id="table-container">Please select a start date</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
-    function excelDateToJSDate(serial) {
-      const excelEpoch = new Date(1899, 11, 30);
-      const result = new Date(excelEpoch.getTime() + serial * 86400000);
-      return result.toISOString().split('T')[0];
+    function generateHeaders(startDate) {
+      const headers = ["Name", "Emp No.", "AR", "CSX", "LO"];
+      for (let week = 0; week < 5; week++) {
+        for (let day = 0; day < 7; day++) {
+          const d = new Date(startDate);
+          d.setDate(d.getDate() + week * 7 + day);
+          const label = d.toLocaleDateString('en-AU', { weekday: 'short', day: '2-digit', month: '2-digit' });
+          headers.push(label);
+        }
+      }
+      return headers;
     }
 
-    fetch('team_5week_roster.xlsx')
-      .then(res => res.arrayBuffer())
-      .then(data => {
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    function loadAndRenderRoster(startDateStr) {
+      fetch('roster_template.xlsx')
+        .then(res => res.arrayBuffer())
+        .then(data => {
+          const wb = XLSX.read(data, { type: 'array' });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        let tableHtml = '<table><thead><tr>';
-        json[0].forEach(header => tableHtml += `<th>${header}</th>`);
-        tableHtml += '</tr></thead><tbody>';
-        json.slice(1).forEach(row => {
-          tableHtml += '<tr>';
-          row.forEach(cell => {
-            if (typeof cell === 'number' && cell > 40000 && cell < 60000) {
-              cell = excelDateToJSDate(cell);
-            }
-            tableHtml += `<td>${cell ?? ''}</td>`;
+          const startDate = new Date(startDateStr);
+          const headers = generateHeaders(startDate);
+
+          let tableHtml = '<table><thead><tr>';
+          headers.forEach(h => tableHtml += `<th>${h}</th>`);
+          tableHtml += '</tr></thead><tbody>';
+
+          json.slice(1).forEach(row => {
+            tableHtml += '<tr>';
+            row.forEach((cell, idx) => {
+              const content = cell ?? '';
+              let cls = '';
+              if (idx >= 5) {
+                cls = `shift-${content}`;
+              }
+              tableHtml += `<td class="${cls}">${content}</td>`;
+            });
+            tableHtml += '</tr>';
           });
-          tableHtml += '</tr>';
-        });
-        tableHtml += '</tbody></table>';
 
-        document.getElementById("table-container").innerHTML = tableHtml;
-      })
-      .catch(err => {
-        document.getElementById("table-container").innerText = "Failed to load roster file.";
-        console.error("Error loading roster:", err);
-      });
+          tableHtml += '</tbody></table>';
+          document.getElementById("table-container").innerHTML = tableHtml;
+        })
+        .catch(err => {
+          document.getElementById("table-container").innerText = "Error loading file.";
+          console.error(err);
+        });
+    }
+
+    document.getElementById("start-date").addEventListener("change", function () {
+      if (this.value) {
+        loadAndRenderRoster(this.value);
+      }
+    });
   </script>
 </body>
 </html>
