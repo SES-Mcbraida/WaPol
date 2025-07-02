@@ -6,56 +6,64 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
   <!--
-    ======================
-    CSS STYLES
-    ======================
-    * Sets overall page look: font, background, color, padding
-    * Styles controls, status, table, inputs, legend
-    * Defines colour classes for each shift code
+  ============================================================================
+    STYLES
+  ============================================================================
   -->
   <style>
-    /* Page layout */
+    /* ─── Page & Typography ───────────────────────────────────────────────── */
     body {
       font-family: Arial, sans-serif;
-      background: #e6f0ff;       /* soft light blue */
-      color: #003366;            /* dark blue text */
+      background: #e6f0ff;    /* light blue */
+      color: #003366;         /* dark blue */
       padding: 1rem;
     }
-    h1 { text-align: center; }
+    h1 { text-align: center; margin-bottom: .5rem; }
 
-    /* Controls (dropdown + button) */
-    .controls { text-align: center; margin-bottom: 1rem; }
-    select, button { padding: 5px; font-size: 0.9rem; margin: 0 5px; }
-
-    /* Status line below controls */
-    #status {
+    /* ─── Controls ─────────────────────────────────────────────────────────── */
+    .controls {
       text-align: center;
       margin: 10px 0;
-      font-weight: bold;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+    }
+    .controls label, .controls input, .controls select, .controls button {
+      font-size: 0.9rem;
+    }
+    .controls input, .controls select, .controls button {
+      padding: 4px 8px;
     }
 
-    /* Table: sticky headers, borders, scrolling */
+    /* ─── Status & Table Container ────────────────────────────────────────── */
+    #status {
+      text-align: center;
+      margin: 8px 0;
+      font-weight: bold;
+    }
+    #table-container {
+      overflow-x: auto;
+    }
+
+    /* ─── Table ───────────────────────────────────────────────────────────── */
     table {
       border-collapse: collapse;
       width: 100%;
-      overflow-x: auto;
-      display: block;
     }
     th, td {
-      padding: 8px;
       border: 1px solid #ccc;
+      padding: 6px;
       text-align: center;
       font-size: 0.9rem;
     }
     th {
-      background: #0059b3;      /* navy header */
-      color: white;
+      background: #0059b3;
+      color: #fff;
       position: sticky;
       top: 0;
-      z-index: 1;
+      z-index: 2;
     }
-
-    /* Input cells for shifts */
     input.shift-input {
       width: 100%;
       border: none;
@@ -63,22 +71,22 @@
       text-align: center;
     }
 
-    /* Legend area */
+    /* ─── Legend ──────────────────────────────────────────────────────────── */
     .legend {
-      margin-top: 20px;
+      margin-top: 16px;
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 6px;
       justify-content: center;
     }
     .legend-item {
-      padding: 5px 10px;
+      padding: 4px 8px;
       font-size: 0.8rem;
+      border: 1px solid #aaa;
       border-radius: 4px;
-      border: 1px solid #ccc;
     }
 
-    /* Shift colour classes */
+    /* ─── Shift Colour Classes ───────────────────────────────────────────── */
     .shift-6   { background: #d6f5d6; }  /* Day */
     .shift-15  { background: #cce5ff; }  /* Afternoon */
     .shift-16  { background: #99ccff; }  /* Late */
@@ -95,11 +103,12 @@
 </head>
 <body>
 
-  <!-- Page Header -->
+  <!-- =================== HEADER =================== -->
   <h1>Team Roster Viewer</h1>
 
-  <!-- Controls -->
+  <!-- =================== CONTROLS =================== -->
   <div class="controls">
+    <!-- Preset dropdown -->
     <label for="preset">View:</label>
     <select id="preset">
       <option value="">-- Select --</option>
@@ -107,15 +116,28 @@
       <option value="month">Current Month</option>
       <option value="next">Next Month</option>
     </select>
+
+    <!-- Manual date range -->
+    <label for="start-date">Start:</label>
+    <input type="date" id="start-date" />
+    <label for="end-date">End:</label>
+    <input type="date" id="end-date" />
+
+    <!-- ID filter -->
+    <label for="id-filter">Filter ID:</label>
+    <input type="text" id="id-filter" placeholder="Emp No." />
+
+    <!-- Reload Excel -->
     <button id="refreshBtn">Reload Roster File</button>
   </div>
 
-  <!-- Status message -->
+  <!-- Status messages -->
   <div id="status">Initializing…</div>
-  <!-- Table goes here -->
+
+  <!-- Table will be injected here -->
   <div id="table-container"></div>
 
-  <!-- Colour Legend -->
+  <!-- =================== LEGEND =================== -->
   <div class="legend">
     <span class="legend-item shift-6">6 – Day</span>
     <span class="legend-item shift-15">15 – Afternoon</span>
@@ -131,139 +153,162 @@
     <span class="legend-item shift-X">X – Day Off</span>
   </div>
 
-  <!-- Include SheetJS library for Excel parsing -->
+  <!-- =================== SCRIPTS =================== -->
+  <!-- XLSX library for reading Excel in the browser -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
-    // Global variables
-    let fullRoster = [];  // holds entire sheet data
-    let canEdit = false;  // set true if correct password entered
+    /* ── Globals ────────────────────────────────────────────────────────── */
+    let fullRoster = [];    // raw 2D array from Excel
+    let canEdit = false;    // becomes true if correct password
 
-    // On page load: ask for password, then load the file
+    /* ── On Load: Ask password and fetch Excel ──────────────────────────── */
     window.addEventListener('load', () => {
-      // Prompt for edit password
+      // simple prompt-based password gate
       const pwd = prompt("Enter edit password:");
-      if (pwd === 'password') {
-        canEdit = true;
-        document.getElementById('status').innerText = "Edit mode enabled";
-      } else {
-        document.getElementById('status').innerText = "Read-only mode";
-      }
-      loadRosterFile();  // fetch and render the Excel data
+      canEdit = (pwd === 'password');
+      document.getElementById('status').innerText = canEdit
+        ? "Edit mode enabled" : "Read-only mode";
+      loadAndRender();  // initial fetch & render
     });
 
-    /**
-     * Maps a shift code to its CSS class.
-     */
+    /* ── Utility: map shift code to CSS class ────────────────────────── */
     function getShiftClass(val) {
       return 'shift-' + (val || '').toString().toUpperCase();
     }
 
-    /**
-     * Renders a 2D array `data` into an HTML table.
-     * First row = headers, subsequent rows = data rows.
-     */
-    function renderTable(data) {
-      const container = document.getElementById('table-container');
-      let html = '<table><thead><tr>';
+    /* ── Core: filter + render based on active filters ───────────────── */
+    function loadAndRender() {
+      document.getElementById('status').innerText = canEdit
+        ? "Loading (edit)…" : "Loading…";
 
-      // Build headers
-      data[0].forEach(h => {
-        html += `<th>${h}</th>`;
-      });
-      html += '</tr></thead><tbody>';
-
-      // Build rows
-      for (let i = 1; i < data.length; i++) {
-        html += '<tr>';
-        data[i].forEach((cell, j) => {
-          // First 6 columns are static text
-          if (j < 6) {
-            html += `<td>${cell || ''}</td>`;
-          } else {
-            // Shift cells: colored + editable if allowed
-            const cls = getShiftClass(cell);
-            html += `<td class="${cls}">
-                       <input class="shift-input" value="${cell||''}"
-                              ${canEdit ? '' : 'disabled'}
-                              oninput="this.parentElement.className=getShiftClass(this.value)" />
-                     </td>`;
-          }
-        });
-        html += '</tr>';
-      }
-
-      html += '</tbody></table>';
-      container.innerHTML = html;
-    }
-
-    /**
-     * Fetches the Excel file, parses it, stores into fullRoster,
-     * and renders the full table.
-     */
-    function loadRosterFile() {
-      const status = document.getElementById('status');
-      status.innerText = canEdit ? "Loading file (edit)..." : "Loading file...";
-
-      fetch('roster_template_final.xlsx?cacheBust=' + Date.now())
+      // Fetch with cache-bust
+      fetch('roster_template_final.xlsx?cacheBust='+Date.now())
         .then(res => {
-          if (!res.ok) throw new Error('File not found (' + res.status + ')');
+          if (!res.ok) throw new Error('File fetch failed: ' + res.status);
           return res.arrayBuffer();
         })
         .then(buf => {
-          const wb = XLSX.read(buf, { type: 'array' });
-          fullRoster = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
-          renderTable(fullRoster);
-          status.innerText = canEdit ? "Roster loaded (edit)" : "Roster loaded";
-          document.getElementById('preset').value = '';
+          // parse workbook & get first sheet
+          const wb = XLSX.read(buf, { type:'array' });
+          fullRoster = XLSX.utils.sheet_to_json(
+            wb.Sheets[wb.SheetNames[0]],
+            { header:1 }
+          );
+          // apply filters & render
+          applyFilters();
+          document.getElementById('status').innerText = canEdit
+            ? "Roster loaded (edit mode)" : "Roster loaded";
         })
         .catch(err => {
-          document.getElementById('status').innerText = "❌ Error loading Excel";
+          document.getElementById('status').innerText = "❌ Error loading file";
           document.getElementById('table-container').innerText = err.message;
           console.error(err);
         });
     }
 
-    /**
-     * Filters fullRoster to only columns whose dates lie between start and end,
-     * then renders that sub-table.
-     */
-    function loadRosterForDates(start, end) {
-      const hdr = fullRoster[0];
-      // Identify date columns by matching dd/mm
-      const dateCols = hdr.map((h, i) => {
-        const m = h.match(/(\d{2})\/(\d{2})/);
-        if (m) {
-          const d = new Date((new Date()).getFullYear(), +m[2] - 1, +m[1]);
-          return { idx: i, date: d };
-        }
-      }).filter(x => x);
-
-      // Select only those columns in the range
-      const cols = dateCols.filter(c => c.date >= start && c.date <= end).map(c => c.idx);
-      // Build new headers + rows
-      const newHdr = hdr.slice(0,6).concat(cols.map(i => hdr[i]));
-      const newRows = fullRoster.slice(1).map(r => r.slice(0,6).concat(cols.map(i => r[i])));
-      renderTable([newHdr, ...newRows]);
+    /* ── Helper: builds and displays the table for a given 2D array ──── */
+    function renderTable(data) {
+      const container = document.getElementById('table-container');
+      let html = '<table><thead><tr>';
+      // headers
+      data[0].forEach(h=> html += `<th>${h}</th>`);
+      html += '</tr></thead><tbody>';
+      // rows
+      data.slice(1).forEach(row => {
+        html += '<tr>';
+        row.forEach((cell, idx) => {
+          if (idx < 6) {
+            html += `<td>${cell||''}</td>`;
+          } else {
+            const cls = getShiftClass(cell);
+            html += `<td class="${cls}">
+                       <input class="shift-input" value="${cell||''}"
+                         ${canEdit ? '' : 'disabled'}
+                         oninput="this.parentElement.className=getShiftClass(this.value)" />
+                     </td>`;
+          }
+        });
+        html += '</tr>';
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
     }
 
-    // Bind UI events:
-    document.getElementById('refreshBtn').onclick = loadRosterFile;
-    document.getElementById('preset').onchange = function() {
-      const now = new Date(), opt = this.value;
-      let s, e;
-      if (opt === 'week') {
-        const d = now.getDay();
-        s = new Date(now); s.setDate(now.getDate() - d);
-        e = new Date(s); e.setDate(s.getDate() + 6);
-      } else if (opt === 'month') {
-        s = new Date(now.getFullYear(), now.getMonth(), 1);
-        e = new Date(now.getFullYear(), now.getMonth()+1, 0);
-      } else if (opt === 'next') {
-        s = new Date(now.getFullYear(), now.getMonth()+1, 1);
-        e = new Date(now.getFullYear(), now.getMonth()+2, 0);
-      } else return;
-      loadRosterForDates(s, e);
-    };
+    /* ── Filter Logic: date range + ID search ──────────────────────────── */
+    function applyFilters() {
+      if (!fullRoster.length) return;  // nothing loaded yet
+      const headers = fullRoster[0];
+      const body = fullRoster.slice(1);
+
+      // 1) Determine which date columns to keep
+      const startVal = document.getElementById('start-date').value;
+      const endVal   = document.getElementById('end-date').value;
+      const preset   = document.getElementById('preset').value;
+      let start, end;
+      const today = new Date();
+
+      // If preset chosen, override start/end
+      if (preset==='week') {
+        const d = today.getDay();
+        start = new Date(today); start.setDate(today.getDate()-d);
+        end   = new Date(start); end.setDate(start.getDate()+6);
+      } else if (preset==='month') {
+        start = new Date(today.getFullYear(), today.getMonth(),1);
+        end   = new Date(today.getFullYear(), today.getMonth()+1,0);
+      } else if (preset==='next') {
+        start = new Date(today.getFullYear(), today.getMonth()+1,1);
+        end   = new Date(today.getFullYear(), today.getMonth()+2,0);
+      } else if (startVal && endVal) {
+        start = new Date(startVal);
+        end   = new Date(endVal);
+      }
+
+      // Identify date columns by header matching dd/mm
+      const dateCols = headers.map((h,i) => {
+        const m = h.match(/(\d{2})\/(\d{2})/);
+        if (m) {
+          const d = new Date(today.getFullYear(), +m[2]-1, +m[1]);
+          return { idx:i, date:d };
+        }
+      }).filter(x=>x);
+
+      // Filter for those within range
+      let colIdxs = [];
+      if (start && end) {
+        colIdxs = dateCols
+          .filter(c=>c.date>=start && c.date<=end)
+          .map(c=>c.idx);
+      } else {
+        // If no date filtering, show all
+        colIdxs = dateCols.map(c=>c.idx);
+      }
+
+      // 2) Filter rows by ID if provided
+      const idFilter = document.getElementById('id-filter').value.trim();
+      let filteredRows = body;
+      if (idFilter) {
+        filteredRows = filteredRows.filter(r =>
+          r[1].toString().includes(idFilter)
+        );
+      }
+
+      // 3) Build new data array: static cols + filtered date cols
+      const newHdr  = headers.slice(0,6).concat(colIdxs.map(i=>headers[i]));
+      const newBody = filteredRows.map(r =>
+        r.slice(0,6).concat(colIdxs.map(i=>r[i]))
+      );
+
+      // 4) Render
+      renderTable([newHdr, ...newBody]);
+    }
+
+    /* ── Event Hooks ───────────────────────────────────────────────────── */
+    document.getElementById('refreshBtn').addEventListener('click', loadAndRender);
+    ['preset','start-date','end-date','id-filter']
+      .forEach(id => document.getElementById(id)
+        .addEventListener('change', applyFilters)
+      );
+
   </script>
 </body>
 </html>
