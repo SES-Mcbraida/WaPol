@@ -1,78 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Team Roster Viewer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
     body {
       font-family: Arial, sans-serif;
       background-color: #e6f0ff;
       color: #003366;
-      padding: 2rem;
-      text-align: center;
+      padding: 1rem;
     }
-    h1 {
+    h1 { text-align: center; }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
       margin-bottom: 1rem;
     }
-    input[type="date"] {
-      margin: 5px;
-      padding: 5px;
+    select, input[type="date"] {
+      padding: 6px;
+      font-size: 1rem;
     }
     table {
-      margin: 2rem auto;
       border-collapse: collapse;
-      width: 95%;
-      background-color: #fff;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 100%;
+      overflow-x: auto;
+      display: block;
     }
     th, td {
       padding: 8px;
       border: 1px solid #ccc;
       text-align: center;
+      font-size: 0.9rem;
     }
     th {
       background-color: #0059b3;
       color: white;
+      cursor: pointer;
     }
 
-    /* Shift colouring */
-    .shift-6     { background-color: #d6f5d6; }  /* Day */
-    .shift-15    { background-color: #cce5ff; }  /* Afternoon */
-    .shift-16    { background-color: #99ccff; }  /* Late */
-    .shift-17    { background-color: #e0ccff; }  /* Evening */
-    .shift-18    { background-color: #f2f2f2; }  /* Night */
-    .shift-X     { background-color: #ffcccb; }  /* Day Off */
-    .shift-AL    { background-color: #fff7a0; }  /* Annual Leave */
-    .shift-CT    { background-color: #ffc966; }  /* Court */
-    .shift-T     { background-color: #d9b3ff; }  /* Training */
-    .shift-RDO   { background-color: #ffd6d6; }  /* RDO */
-    .shift-LSL   { background-color: #c2f0c2; }  /* LSL */
-    .shift-RS    { background-color: #b3e6ff; }  /* Regional Shield */
+    /* Colour coding */
+    .shift-6     { background-color: #d6f5d6; }
+    .shift-15    { background-color: #cce5ff; }
+    .shift-16    { background-color: #99ccff; }
+    .shift-17    { background-color: #e0ccff; }
+    .shift-18    { background-color: #f2f2f2; }
+    .shift-X     { background-color: #ffcccb; }
+    .shift-AL    { background-color: #fff7a0; }
+    .shift-CT    { background-color: #ffc966; }
+    .shift-T     { background-color: #d9b3ff; }
+    .shift-RDO   { background-color: #ffd6d6; }
+    .shift-LSL   { background-color: #c2f0c2; }
+    .shift-RS    { background-color: #b3e6ff; }
 
     .legend-box {
       display: flex;
-      justify-content: center;
       flex-wrap: wrap;
-      gap: 8px;
+      justify-content: center;
+      gap: 6px;
       margin-top: 20px;
     }
-
     .legend-item {
       padding: 5px 10px;
-      border-radius: 5px;
-      font-size: 0.85rem;
-      font-weight: bold;
+      font-size: 0.8rem;
+      border-radius: 4px;
       border: 1px solid #ccc;
     }
   </style>
 </head>
 <body>
   <h1>Team Roster Viewer</h1>
-  <p>Select a start and end date to apply to the 5-week view.</p>
-  <label for="start-date">Start Date:</label>
-  <input type="date" id="start-date">
-  <label for="end-date">End Date:</label>
-  <input type="date" id="end-date">
+
+  <div class="controls">
+    <label for="preset">Start Date Preset:</label>
+    <select id="preset">
+      <option value="">Select a Week</option>
+      <option value="2024-07-01">Week of 1 July</option>
+      <option value="2024-08-05">Week of 5 August</option>
+      <option value="2024-09-09">Week of 9 September</option>
+    </select>
+
+    <label>Start Date:</label>
+    <input type="date" id="start-date" />
+    <label>End Date:</label>
+    <input type="date" id="end-date" />
+  </div>
 
   <div class="legend-box">
     <span class="legend-item shift-6">6 – Day</span>
@@ -83,82 +97,85 @@
     <span class="legend-item shift-AL">AL – Annual Leave</span>
     <span class="legend-item shift-CT">CT – Court</span>
     <span class="legend-item shift-T">T – Training</span>
-    <span class="legend-item shift-RDO">RDO – Day Off</span>
+    <span class="legend-item shift-RDO">RDO – Rostered Day Off</span>
     <span class="legend-item shift-LSL">LSL – Long Service</span>
     <span class="legend-item shift-RS">RS – Regional Shield</span>
     <span class="legend-item shift-X">X – Day Off</span>
   </div>
 
-  <div id="table-container">Please select a start and end date.</div>
+  <div id="table-container">Please select dates above to display the roster.</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
-    function generateDateHeaders(startDate, endDate) {
-      const result = ["Name", "Emp No.", "AR", "CSX", "LO", "Note"];
-      let current = new Date(startDate);
-      while (current <= endDate) {
-        const label = current.toLocaleDateString('en-AU', { weekday: 'short', day: '2-digit', month: '2-digit' });
-        result.push(label);
-        current.setDate(current.getDate() + 1);
+    document.getElementById("preset").addEventListener("change", function () {
+      const start = this.value;
+      if (start) {
+        const end = new Date(start);
+        end.setDate(end.getDate() + 34);
+        document.getElementById("start-date").value = start;
+        document.getElementById("end-date").value = end.toISOString().slice(0, 10);
+        loadRoster(start, end.toISOString().slice(0, 10));
       }
-      return result;
+    });
+
+    document.getElementById("start-date").addEventListener("change", triggerLoad);
+    document.getElementById("end-date").addEventListener("change", triggerLoad);
+
+    function triggerLoad() {
+      const start = document.getElementById("start-date").value;
+      const end = document.getElementById("end-date").value;
+      if (start && end) {
+        loadRoster(start, end);
+      }
     }
 
-    function loadRoster(startStr, endStr) {
-      const startDate = new Date(startStr);
-      const endDate = new Date(endStr);
+    function generateHeaders(startDate, endDate) {
+      const headers = ["Name", "Emp No.", "AR", "CSX", "LO", "Note"];
+      let current = new Date(startDate);
+      while (current <= new Date(endDate)) {
+        headers.push(current.toLocaleDateString('en-AU', { weekday: 'short', day: '2-digit', month: '2-digit' }));
+        current.setDate(current.getDate() + 1);
+      }
+      return headers;
+    }
+
+    function loadRoster(start, end) {
       fetch("roster_template_with_notes.xlsx")
         .then(res => res.arrayBuffer())
         .then(data => {
-          const wb = XLSX.read(data, { type: "array" });
-          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-          const dateColsStart = 6; // Adjust based on "Name, Emp No, AR, CSX, LO, Note"
+          const startDate = new Date(start);
+          const endDate = new Date(end);
+          const headers = generateHeaders(startDate, endDate);
+          const colOffset = 6;
 
-          const headerRow = generateDateHeaders(startDate, endDate);
-          let table = '<table><thead><tr>';
-          headerRow.forEach(h => table += `<th>${h}</th>`);
-          table += '</tr></thead><tbody>';
+          let html = "<table><thead><tr>";
+          headers.forEach(h => html += `<th>${h}</th>`);
+          html += "</tr></thead><tbody>";
 
           for (let i = 1; i < rows.length; i++) {
-            const row = rows[i];
-            table += '<tr>';
-            for (let j = 0; j < headerRow.length; j++) {
-              let cell = row[j] ?? '';
-              let cls = '';
-              if (j >= dateColsStart) {
-                cls = `shift-${cell.toString().toUpperCase()}`;
-              }
-              table += `<td class="${cls}">${cell}</td>`;
+            const r = rows[i];
+            html += "<tr>";
+            for (let j = 0; j < headers.length; j++) {
+              let val = r[j] || "";
+              let cls = "";
+              if (j >= colOffset) cls = `shift-${val.toString().toUpperCase()}`;
+              html += `<td class="${cls}">${val}</td>`;
             }
-            table += '</tr>';
+            html += "</tr>";
           }
 
-          table += '</tbody></table>';
-          document.getElementById("table-container").innerHTML = table;
+          html += "</tbody></table>";
+          document.getElementById("table-container").innerHTML = html;
         })
-        .catch(err => {
-          document.getElementById("table-container").innerText = "Failed to load roster.";
-          console.error(err);
+        .catch(e => {
+          document.getElementById("table-container").innerText = "Error loading file.";
+          console.error(e);
         });
     }
-
-    document.getElementById("end-date").addEventListener("change", () => {
-      const start = document.getElementById("start-date").value;
-      const end = document.getElementById("end-date").value;
-      if (start && end) {
-        loadRoster(start, end);
-      }
-    });
-
-    document.getElementById("start-date").addEventListener("change", () => {
-      const start = document.getElementById("start-date").value;
-      const end = document.getElementById("end-date").value;
-      if (start && end) {
-        loadRoster(start, end);
-      }
-    });
   </script>
 </body>
 </html>
