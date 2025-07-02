@@ -1,114 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Team Roster Viewer</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
 
-  <!--
-  ============================================================================
-    STYLES
-  ============================================================================
-  -->
+  <!-- ============================
+       STYLES
+  ============================ -->
   <style>
-    /* ─── Page & Typography ───────────────────────────────────────────────── */
-    body {
-      font-family: Arial, sans-serif;
-      background: #e6f0ff;    /* light blue */
-      color: #003366;         /* dark blue */
-      padding: 1rem;
-    }
-    h1 { text-align: center; margin-bottom: .5rem; }
+    body { font-family: Arial, sans-serif; background: #e6f0ff; color: #003366; padding: 1rem; }
+    h1  { text-align: center; margin-bottom: .5rem; }
 
-    /* ─── Controls ─────────────────────────────────────────────────────────── */
-    .controls {
-      text-align: center;
-      margin: 10px 0;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 8px;
-    }
-    .controls label, .controls input, .controls select, .controls button {
-      font-size: 0.9rem;
-    }
-    .controls input, .controls select, .controls button {
-      padding: 4px 8px;
+    /* Controls */
+    .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom:1rem; }
+    .controls label, .controls select, .controls input, .controls button {
+      font-size: .9rem; padding: 4px 8px;
     }
 
-    /* ─── Status & Table Container ────────────────────────────────────────── */
-    #status {
-      text-align: center;
-      margin: 8px 0;
-      font-weight: bold;
-    }
-    #table-container {
-      overflow-x: auto;
-    }
+    /* Status & table wrapper */
+    #status { text-align:center; font-weight:bold; margin-bottom:.5rem; }
+    #table-container { overflow-x: auto; }
 
-    /* ─── Table ───────────────────────────────────────────────────────────── */
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
+    /* Table */
+    table { border-collapse: collapse; width:100%; }
     th, td {
-      border: 1px solid #ccc;
-      padding: 6px;
-      text-align: center;
-      font-size: 0.9rem;
+      border:1px solid #ccc; padding:6px; text-align:center; font-size:.9rem;
     }
     th {
-      background: #0059b3;
-      color: #fff;
-      position: sticky;
-      top: 0;
-      z-index: 2;
+      background: #0059b3; color:#fff;
+      position: sticky; top:0; z-index:2;
     }
     input.shift-input {
-      width: 100%;
-      border: none;
-      background: transparent;
-      text-align: center;
+      width:100%; border:none; background:transparent; text-align:center;
     }
 
-    /* ─── Legend ──────────────────────────────────────────────────────────── */
-    .legend {
-      margin-top: 16px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      justify-content: center;
-    }
+    /* Legend */
+    .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:1rem; }
     .legend-item {
-      padding: 4px 8px;
-      font-size: 0.8rem;
-      border: 1px solid #aaa;
-      border-radius: 4px;
+      padding:4px 8px; font-size:.8rem; border:1px solid #888; border-radius:4px;
     }
 
-    /* ─── Shift Colour Classes ───────────────────────────────────────────── */
-    .shift-6   { background: #d6f5d6; }  /* Day */
-    .shift-15  { background: #cce5ff; }  /* Afternoon */
-    .shift-16  { background: #99ccff; }  /* Late */
-    .shift-17  { background: #e0ccff; }  /* Evening */
-    .shift-18  { background: #f2f2f2; }  /* Night */
-    .shift-X   { background: #ffcccb; }  /* Day Off */
-    .shift-AL  { background: #fff7a0; }  /* Annual Leave */
-    .shift-CT  { background: #ffc966; }  /* Court */
-    .shift-T   { background: #d9b3ff; }  /* Training */
-    .shift-RDO { background: #ffd6d6; }  /* RDO */
-    .shift-LSL { background: #c2f0c2; }  /* Long Service */
-    .shift-RS  { background: #b3e6ff; }  /* Regional Shield */
+    /* Shift colours & times */
+    .shift-6    { background:#d6f5d6 }  /* Day 06:00–16:00 */
+    .shift-15   { background:#cce5ff }  /* Afternoon 15:00–01:00 */
+    .shift-16   { background:#99ccff }  /* Late 16:00–02:00 */
+    .shift-17   { background:#e0ccff }  /* Evening 17:00–03:00 */
+    .shift-18   { background:#f2f2f2 }  /* Night 21:00–07:00 */
+    .shift-X    { background:#ffcccb }  /* Day Off */
+    .shift-AL   { background:#fff7a0 }  /* Annual Leave */
+    .shift-CT   { background:#ffc966 }  /* Court */
+    .shift-T    { background:#d9b3ff }  /* Training */
+    .shift-RDO  { background:#ffd6d6 }  /* RDO */
+    .shift-LSL  { background:#c2f0c2 }  /* Long Service */
+    .shift-RS   { background:#b3e6ff }  /* Regional Shield */
   </style>
 </head>
 <body>
 
-  <!-- =================== HEADER =================== -->
   <h1>Team Roster Viewer</h1>
 
-  <!-- =================== CONTROLS =================== -->
+  <!-- ============================
+       CONTROLS
+  ============================ -->
   <div class="controls">
-    <!-- Preset dropdown -->
+    <!-- Presets -->
     <label for="preset">View:</label>
     <select id="preset">
       <option value="">-- Select --</option>
@@ -117,197 +73,260 @@
       <option value="next">Next Month</option>
     </select>
 
-    <!-- Manual date range -->
+    <!-- Manual dates -->
     <label for="start-date">Start:</label>
-    <input type="date" id="start-date" />
+    <input type="date" id="start-date"/>
     <label for="end-date">End:</label>
-    <input type="date" id="end-date" />
+    <input type="date" id="end-date"/>
 
-    <!-- ID filter -->
-    <label for="id-filter">Filter ID:</label>
-    <input type="text" id="id-filter" placeholder="Emp No." />
+    <!-- Team filter -->
+    <label for="team-filter">Team:</label>
+    <select id="team-filter">
+      <option value="">All Teams</option>
+    </select>
 
-    <!-- Reload Excel -->
+    <!-- Emp No filter -->
+    <label for="id-filter">Emp No.:</label>
+    <input type="text" id="id-filter" placeholder="e.g. 204140"/>
+
+    <!-- Reload button -->
     <button id="refreshBtn">Reload Roster File</button>
   </div>
 
-  <!-- Status messages -->
   <div id="status">Initializing…</div>
-
-  <!-- Table will be injected here -->
   <div id="table-container"></div>
 
-  <!-- =================== LEGEND =================== -->
+  <!-- ============================
+       LEGEND
+  ============================ -->
   <div class="legend">
-    <span class="legend-item shift-6">6 – Day</span>
-    <span class="legend-item shift-15">15 – Afternoon</span>
-    <span class="legend-item shift-16">16 – Late</span>
-    <span class="legend-item shift-17">17 – Evening</span>
-    <span class="legend-item shift-18">18 – Night</span>
+    <span class="legend-item shift-6">6 – Day (06:00–16:00)</span>
+    <span class="legend-item shift-15">15 – Afternoon (15:00–01:00)</span>
+    <span class="legend-item shift-16">16 – Late (16:00–02:00)</span>
+    <span class="legend-item shift-17">17 – Evening (17:00–03:00)</span>
+    <span class="legend-item shift-18">18 – Night (21:00–07:00)</span>
+    <span class="legend-item shift-X">X – Day Off</span>
     <span class="legend-item shift-AL">AL – Annual Leave</span>
     <span class="legend-item shift-CT">CT – Court</span>
     <span class="legend-item shift-T">T – Training</span>
     <span class="legend-item shift-RDO">RDO – Rostered Day Off</span>
     <span class="legend-item shift-LSL">LSL – Long Service</span>
     <span class="legend-item shift-RS">RS – Regional Shield</span>
-    <span class="legend-item shift-X">X – Day Off</span>
   </div>
 
-  <!-- =================== SCRIPTS =================== -->
-  <!-- XLSX library for reading Excel in the browser -->
+  <!-- ============================
+       SCRIPT: SheetJS & Logic
+  ============================ -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
-    /* ── Globals ────────────────────────────────────────────────────────── */
-    let fullRoster = [];    // raw 2D array from Excel
-    let canEdit = false;    // becomes true if correct password
+    // ─────────────────────────────────────────
+    // GLOBALS
+    // ─────────────────────────────────────────
+    let fullRoster = [];               // 2D array from Excel
+    let canEdit    = false;            // becomes true if correct password
+    const cycle    = ['6','15','16','17','18'];
+    const refMonday= new Date(2025,5,30);// Mon 30 Jun 2025 = week 1 start
 
-    /* ── On Load: Ask password and fetch Excel ──────────────────────────── */
+    // ─────────────────────────────────────────
+    // ON LOAD: Password gate, then fetch & render
+    // ─────────────────────────────────────────
     window.addEventListener('load', () => {
-      // simple prompt-based password gate
       const pwd = prompt("Enter edit password:");
       canEdit = (pwd === 'password');
-      document.getElementById('status').innerText = canEdit
-        ? "Edit mode enabled" : "Read-only mode";
-      loadAndRender();  // initial fetch & render
+      document.getElementById('status').innerText =
+        canEdit ? "Edit mode enabled" : "Read-only mode";
+      loadAndPopulate();
     });
 
-    /* ── Utility: map shift code to CSS class ────────────────────────── */
-    function getShiftClass(val) {
-      return 'shift-' + (val || '').toString().toUpperCase();
-    }
-
-    /* ── Core: filter + render based on active filters ───────────────── */
-    function loadAndRender() {
-      document.getElementById('status').innerText = canEdit
-        ? "Loading (edit)…" : "Loading…";
-
-      // Fetch with cache-bust
+    // ─────────────────────────────────────────
+    // FETCH EXCEL → parse → populate teams → apply filters
+    // ─────────────────────────────────────────
+    function loadAndPopulate() {
+      document.getElementById('status').innerText =
+        canEdit ? "Loading (edit)…" : "Loading…";
       fetch('roster_template_final.xlsx?cacheBust='+Date.now())
         .then(res => {
-          if (!res.ok) throw new Error('File fetch failed: ' + res.status);
+          if(!res.ok) throw new Error('Fetch failed: '+res.status);
           return res.arrayBuffer();
         })
         .then(buf => {
-          // parse workbook & get first sheet
           const wb = XLSX.read(buf, { type:'array' });
           fullRoster = XLSX.utils.sheet_to_json(
-            wb.Sheets[wb.SheetNames[0]],
-            { header:1 }
+            wb.Sheets[wb.SheetNames[0]], { header:1 }
           );
-          // apply filters & render
+          populateTeams();
           applyFilters();
-          document.getElementById('status').innerText = canEdit
-            ? "Roster loaded (edit mode)" : "Roster loaded";
+          document.getElementById('status').innerText =
+            canEdit ? "Loaded (edit)" : "Loaded";
         })
         .catch(err => {
-          document.getElementById('status').innerText = "❌ Error loading file";
+          document.getElementById('status').innerText = "❌ Load error";
           document.getElementById('table-container').innerText = err.message;
           console.error(err);
         });
     }
 
-    /* ── Helper: builds and displays the table for a given 2D array ──── */
+    // ─────────────────────────────────────────
+    // POPULATE "Team" FILTER DROPDOWN
+    // ─────────────────────────────────────────
+    function populateTeams() {
+      const hdr = fullRoster[0];
+      const ti  = hdr.indexOf('Team');
+      if (ti < 0) return;
+      const teams = [...new Set(fullRoster.slice(1).map(r=>r[ti]))];
+      const sel   = document.getElementById('team-filter');
+      sel.innerHTML = '<option value="">All Teams</option>';
+      teams.forEach(t=> {
+        if(t!=='') sel.innerHTML += `<option value="${t}">Team ${t}</option>`;
+      });
+    }
+
+    // ─────────────────────────────────────────
+    // APPLY FILTERS & PREDICTION
+    // ─────────────────────────────────────────
+    function applyFilters() {
+      if (!fullRoster.length) return;
+      const hdr  = fullRoster[0], body = fullRoster.slice(1);
+      // 1) Read controls
+      const preset = document.getElementById('preset').value;
+      const sVal   = document.getElementById('start-date').value;
+      const eVal   = document.getElementById('end-date').value;
+      const teamVal= document.getElementById('team-filter').value;
+      const idVal  = document.getElementById('id-filter').value.trim();
+      const now    = new Date();
+      let start, end;
+
+      // 2) Determine start/end from preset or manual
+      if (preset==='week') {
+        const d = now.getDay();
+        start = new Date(now); start.setDate(now.getDate()-d);
+        end   = new Date(start); end.setDate(start.getDate()+6);
+      } else if (preset==='month') {
+        start = new Date(now.getFullYear(),now.getMonth(),1);
+        end   = new Date(now.getFullYear(),now.getMonth()+1,0);
+      } else if (preset==='next') {
+        start = new Date(now.getFullYear(),now.getMonth()+1,1);
+        end   = new Date(now.getFullYear(),now.getMonth()+2,0);
+      } else if (sVal && eVal) {
+        start = new Date(sVal);
+        end   = new Date(eVal);
+      }
+
+      // 3) Build full date array
+      const allDates = [];
+      if (start && end && start <= end) {
+        for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
+          allDates.push(new Date(d));
+        }
+      }
+
+      // 4) Locate Excel date columns
+      const excelCols = hdr.map((h,i)=>{
+        const m = h.match(/(\d{2})\/(\d{2})/);
+        if(m) return { idx:i, date:new Date(now.getFullYear(),+m[2]-1,+m[1]) };
+      }).filter(x=>x);
+
+      // 5) Create spanCols: for each date, excel or predict
+      const spanCols = allDates.map(d=>{
+        const ex = excelCols.find(c=>
+          c.date.getDate()===d.getDate() &&
+          c.date.getMonth()===d.getMonth()
+        );
+        return ex
+          ? { type:'excel', idx:ex.idx, date:d }
+          : { type:'predict', date:d };
+      });
+
+      // 6) Filter body by Team & Emp No.
+      let rows = body;
+      const ti = hdr.indexOf('Team');
+      if (teamVal && ti>=0) {
+        rows = rows.filter(r=>r[ti].toString()===teamVal);
+      }
+      if (idVal) {
+        rows = rows.filter(r=>r[1].toString().includes(idVal));
+      }
+
+      // 7) Build new headers
+      // Static end = first date column index
+      const dateRe    = /\d{2}\/\d{2}/;
+      const staticEnd = hdr.findIndex(h=>dateRe.test(h));
+      const staticHdr = hdr.slice(0, staticEnd);
+      const dateHdrs  = spanCols.map(c=>{
+        const dd = String(c.date.getDate()).padStart(2,'0');
+        const mm = String(c.date.getMonth()+1).padStart(2,'0');
+        const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][c.date.getDay()];
+        return `${wd}, ${dd}/${mm}`;
+      });
+      const newHdr = staticHdr.concat(dateHdrs);
+
+      // 8) Build new rows
+      const newRows = rows.map((r,rowIdx)=>{
+        const base = r.slice(0, staticEnd);
+        const tail = spanCols.map(c=>{
+          if (c.type==='excel') return r[c.idx];
+          // Weekly rotation prediction
+          const diffDays = Math.floor((c.date - refMonday)/(1000*60*60*24));
+          const weekNum  = Math.floor(diffDays/7);
+          const teamIdx  = rowIdx % cycle.length;
+          let idx       = (weekNum + teamIdx) % cycle.length;
+          if(idx<0) idx += cycle.length;
+          return cycle[idx];
+        });
+        return base.concat(tail);
+      });
+
+      renderTable([newHdr, ...newRows]);
+    }
+
+    // ─────────────────────────────────────────
+    // RENDER TABLE 2D → HTML
+    // ─────────────────────────────────────────
     function renderTable(data) {
-      const container = document.getElementById('table-container');
+      const c = document.getElementById('table-container');
+      // Determine staticEnd again
+      const dateRe    = /\d{2}\/\d{2}/;
+      const staticEnd = data[0].findIndex(h=>dateRe.test(h));
       let html = '<table><thead><tr>';
-      // headers
       data[0].forEach(h=> html += `<th>${h}</th>`);
       html += '</tr></thead><tbody>';
-      // rows
-      data.slice(1).forEach(row => {
+      data.slice(1).forEach((row, rIdx)=>{
         html += '<tr>';
-        row.forEach((cell, idx) => {
-          if (idx < 6) {
-            html += `<td>${cell||''}</td>`;
-          } else {
-            const cls = getShiftClass(cell);
-            html += `<td class="${cls}">
-                       <input class="shift-input" value="${cell||''}"
-                         ${canEdit ? '' : 'disabled'}
-                         oninput="this.parentElement.className=getShiftClass(this.value)" />
+        data[0].forEach((h, cIdx)=>{
+          const cell = row[cIdx]||'';
+          // Training columns as checkboxes
+          if (/^Training\d+$/.test(h)) {
+            const chk = cell ? 'checked' : '';
+            html += `<td class="${cell?'shift-T':''}">
+                       <input type="checkbox" ${chk} ${canEdit?'':'disabled'}
+                         onchange="this.parentElement.className=this.checked?'shift-T':''" />
+                     </td>`;
+          }
+          // Static columns
+          else if (cIdx < staticEnd) {
+            html += `<td>${cell}</td>`;
+          }
+          // Shift columns
+          else {
+            html += `<td class="shift-${cell.toString().toUpperCase()}">
+                       <input class="shift-input" value="${cell}"
+                         ${canEdit?'':'disabled'}
+                         oninput="this.parentElement.className='shift-'+this.value.toUpperCase()" />
                      </td>`;
           }
         });
         html += '</tr>';
       });
       html += '</tbody></table>';
-      container.innerHTML = html;
+      c.innerHTML = html;
     }
 
-    /* ── Filter Logic: date range + ID search ──────────────────────────── */
-    function applyFilters() {
-      if (!fullRoster.length) return;  // nothing loaded yet
-      const headers = fullRoster[0];
-      const body = fullRoster.slice(1);
-
-      // 1) Determine which date columns to keep
-      const startVal = document.getElementById('start-date').value;
-      const endVal   = document.getElementById('end-date').value;
-      const preset   = document.getElementById('preset').value;
-      let start, end;
-      const today = new Date();
-
-      // If preset chosen, override start/end
-      if (preset==='week') {
-        const d = today.getDay();
-        start = new Date(today); start.setDate(today.getDate()-d);
-        end   = new Date(start); end.setDate(start.getDate()+6);
-      } else if (preset==='month') {
-        start = new Date(today.getFullYear(), today.getMonth(),1);
-        end   = new Date(today.getFullYear(), today.getMonth()+1,0);
-      } else if (preset==='next') {
-        start = new Date(today.getFullYear(), today.getMonth()+1,1);
-        end   = new Date(today.getFullYear(), today.getMonth()+2,0);
-      } else if (startVal && endVal) {
-        start = new Date(startVal);
-        end   = new Date(endVal);
-      }
-
-      // Identify date columns by header matching dd/mm
-      const dateCols = headers.map((h,i) => {
-        const m = h.match(/(\d{2})\/(\d{2})/);
-        if (m) {
-          const d = new Date(today.getFullYear(), +m[2]-1, +m[1]);
-          return { idx:i, date:d };
-        }
-      }).filter(x=>x);
-
-      // Filter for those within range
-      let colIdxs = [];
-      if (start && end) {
-        colIdxs = dateCols
-          .filter(c=>c.date>=start && c.date<=end)
-          .map(c=>c.idx);
-      } else {
-        // If no date filtering, show all
-        colIdxs = dateCols.map(c=>c.idx);
-      }
-
-      // 2) Filter rows by ID if provided
-      const idFilter = document.getElementById('id-filter').value.trim();
-      let filteredRows = body;
-      if (idFilter) {
-        filteredRows = filteredRows.filter(r =>
-          r[1].toString().includes(idFilter)
-        );
-      }
-
-      // 3) Build new data array: static cols + filtered date cols
-      const newHdr  = headers.slice(0,6).concat(colIdxs.map(i=>headers[i]));
-      const newBody = filteredRows.map(r =>
-        r.slice(0,6).concat(colIdxs.map(i=>r[i]))
-      );
-
-      // 4) Render
-      renderTable([newHdr, ...newBody]);
-    }
-
-    /* ── Event Hooks ───────────────────────────────────────────────────── */
-    document.getElementById('refreshBtn').addEventListener('click', loadAndRender);
-    ['preset','start-date','end-date','id-filter']
-      .forEach(id => document.getElementById(id)
-        .addEventListener('change', applyFilters)
-      );
+    // ─────────────────────────────────────────
+    // HOOKS
+    // ─────────────────────────────────────────
+    document.getElementById('refreshBtn').onclick = loadAndPopulate;
+    ['preset','start-date','end-date','team-filter','id-filter']
+      .forEach(id=>document.getElementById(id).onchange = applyFilters);
 
   </script>
 </body>
