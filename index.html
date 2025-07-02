@@ -12,10 +12,10 @@
       text-align: center;
     }
     h1 {
-      margin-bottom: 0.5rem;
+      margin-bottom: 1rem;
     }
     input[type="date"] {
-      margin: 10px;
+      margin: 5px;
       padding: 5px;
     }
     table {
@@ -34,95 +34,129 @@
       background-color: #0059b3;
       color: white;
     }
+
+    /* Shift colouring */
     .shift-6     { background-color: #d6f5d6; }  /* Day */
     .shift-15    { background-color: #cce5ff; }  /* Afternoon */
     .shift-16    { background-color: #99ccff; }  /* Late */
     .shift-17    { background-color: #e0ccff; }  /* Evening */
     .shift-18    { background-color: #f2f2f2; }  /* Night */
     .shift-X     { background-color: #ffcccb; }  /* Day Off */
+    .shift-AL    { background-color: #fff7a0; }  /* Annual Leave */
+    .shift-CT    { background-color: #ffc966; }  /* Court */
+    .shift-T     { background-color: #d9b3ff; }  /* Training */
+    .shift-RDO   { background-color: #ffd6d6; }  /* RDO */
+    .shift-LSL   { background-color: #c2f0c2; }  /* LSL */
+    .shift-RS    { background-color: #b3e6ff; }  /* Regional Shield */
+
     .legend-box {
       display: flex;
       justify-content: center;
       flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 20px;
+      gap: 8px;
+      margin-top: 20px;
     }
+
     .legend-item {
       padding: 5px 10px;
       border-radius: 5px;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
+      font-weight: bold;
+      border: 1px solid #ccc;
     }
   </style>
 </head>
 <body>
   <h1>Team Roster Viewer</h1>
+  <p>Select a start and end date to apply to the 5-week view.</p>
   <label for="start-date">Start Date:</label>
   <input type="date" id="start-date">
+  <label for="end-date">End Date:</label>
+  <input type="date" id="end-date">
+
   <div class="legend-box">
     <span class="legend-item shift-6">6 – Day</span>
     <span class="legend-item shift-15">15 – Afternoon</span>
     <span class="legend-item shift-16">16 – Late</span>
     <span class="legend-item shift-17">17 – Evening</span>
     <span class="legend-item shift-18">18 – Night</span>
+    <span class="legend-item shift-AL">AL – Annual Leave</span>
+    <span class="legend-item shift-CT">CT – Court</span>
+    <span class="legend-item shift-T">T – Training</span>
+    <span class="legend-item shift-RDO">RDO – Day Off</span>
+    <span class="legend-item shift-LSL">LSL – Long Service</span>
+    <span class="legend-item shift-RS">RS – Regional Shield</span>
     <span class="legend-item shift-X">X – Day Off</span>
   </div>
-  <div id="table-container">Please select a start date</div>
+
+  <div id="table-container">Please select a start and end date.</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
-    function generateHeaders(startDate) {
-      const headers = ["Name", "Emp No.", "AR", "CSX", "LO"];
-      for (let week = 0; week < 5; week++) {
-        for (let day = 0; day < 7; day++) {
-          const d = new Date(startDate);
-          d.setDate(d.getDate() + week * 7 + day);
-          const label = d.toLocaleDateString('en-AU', { weekday: 'short', day: '2-digit', month: '2-digit' });
-          headers.push(label);
-        }
+    function generateDateHeaders(startDate, endDate) {
+      const result = ["Name", "Emp No.", "AR", "CSX", "LO", "Note"];
+      let current = new Date(startDate);
+      while (current <= endDate) {
+        const label = current.toLocaleDateString('en-AU', { weekday: 'short', day: '2-digit', month: '2-digit' });
+        result.push(label);
+        current.setDate(current.getDate() + 1);
       }
-      return headers;
+      return result;
     }
 
-    function loadAndRenderRoster(startDateStr) {
-      fetch('roster_template.xlsx')
+    function loadRoster(startStr, endStr) {
+      const startDate = new Date(startStr);
+      const endDate = new Date(endStr);
+      fetch("roster_template_with_notes.xlsx")
         .then(res => res.arrayBuffer())
         .then(data => {
-          const wb = XLSX.read(data, { type: 'array' });
+          const wb = XLSX.read(data, { type: "array" });
           const sheet = wb.Sheets[wb.SheetNames[0]];
-          const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-          const startDate = new Date(startDateStr);
-          const headers = generateHeaders(startDate);
+          const dateColsStart = 6; // Adjust based on "Name, Emp No, AR, CSX, LO, Note"
 
-          let tableHtml = '<table><thead><tr>';
-          headers.forEach(h => tableHtml += `<th>${h}</th>`);
-          tableHtml += '</tr></thead><tbody>';
+          const headerRow = generateDateHeaders(startDate, endDate);
+          let table = '<table><thead><tr>';
+          headerRow.forEach(h => table += `<th>${h}</th>`);
+          table += '</tr></thead><tbody>';
 
-          json.slice(1).forEach(row => {
-            tableHtml += '<tr>';
-            row.forEach((cell, idx) => {
-              const content = cell ?? '';
+          for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            table += '<tr>';
+            for (let j = 0; j < headerRow.length; j++) {
+              let cell = row[j] ?? '';
               let cls = '';
-              if (idx >= 5) {
-                cls = `shift-${content}`;
+              if (j >= dateColsStart) {
+                cls = `shift-${cell.toString().toUpperCase()}`;
               }
-              tableHtml += `<td class="${cls}">${content}</td>`;
-            });
-            tableHtml += '</tr>';
-          });
+              table += `<td class="${cls}">${cell}</td>`;
+            }
+            table += '</tr>';
+          }
 
-          tableHtml += '</tbody></table>';
-          document.getElementById("table-container").innerHTML = tableHtml;
+          table += '</tbody></table>';
+          document.getElementById("table-container").innerHTML = table;
         })
         .catch(err => {
-          document.getElementById("table-container").innerText = "Error loading file.";
+          document.getElementById("table-container").innerText = "Failed to load roster.";
           console.error(err);
         });
     }
 
-    document.getElementById("start-date").addEventListener("change", function () {
-      if (this.value) {
-        loadAndRenderRoster(this.value);
+    document.getElementById("end-date").addEventListener("change", () => {
+      const start = document.getElementById("start-date").value;
+      const end = document.getElementById("end-date").value;
+      if (start && end) {
+        loadRoster(start, end);
+      }
+    });
+
+    document.getElementById("start-date").addEventListener("change", () => {
+      const start = document.getElementById("start-date").value;
+      const end = document.getElementById("end-date").value;
+      if (start && end) {
+        loadRoster(start, end);
       }
     });
   </script>
