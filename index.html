@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Team Roster Viewer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <!-- SheetJS for reading Excel -->
+  <!-- SheetJS for Excel parsing -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body { font-family: Arial,sans-serif; background:#e7effa; color:#333; padding:1rem; }
@@ -17,24 +17,25 @@
     th, td { border:1px solid #aaa; padding:6px; text-align:center; font-size:.85rem; }
     th { background:#003366; color:#fff; position:sticky; top:0; z-index:1; }
     /* shift colours */
-    .shift-6   { background:#c0ffc0 }
-    .shift-15  { background:#b3d9ff }
-    .shift-16  { background:#add8e6 }
-    .shift-17  { background:#e3b3ff }
-    .shift-18  { background:#d3d3ff }
-    .shift-X   { background:#f5f5f5 }
-    .shift-AL  { background:#ffff99 }
-    .shift-CT  { background:#ffcc66 }
-    .shift-T   { background:#dda0dd }
-    .shift-RDO { background:#ffcccc }
-    .shift-LSL { background:#ccffcc }
-    .shift-RS  { background:#99ccff }
+    .shift-6   { background:#c0ffc0; }
+    .shift-15  { background:#b3d9ff; }
+    .shift-16  { background:#add8e6; }
+    .shift-17  { background:#e3b3ff; }
+    .shift-18  { background:#d3d3ff; }
+    .shift-X   { background:#f5f5f5; }
+    .shift-AL  { background:#ffff99; }
+    .shift-CT  { background:#ffcc66; }
+    .shift-T   { background:#dda0dd; }
+    .shift-RDO { background:#ffcccc; }
+    .shift-LSL { background:#ccffcc; }
+    .shift-RS  { background:#99ccff; }
     #status { text-align:center; font-weight:bold; margin-top:.5rem; }
   </style>
 </head>
 <body>
   <h1>Team Roster Viewer</h1>
 
+  <!-- Legend -->
   <div class="legend">
     <div class="legend-item shift-6">6—Day (06:00–16:00)</div>
     <div class="legend-item shift-15">15—Afternoon (15:00–01:00)</div>
@@ -50,6 +51,7 @@
     <div class="legend-item shift-RS">RS—Regional Shield</div>
   </div>
 
+  <!-- Filters -->
   <div class="controls">
     <label>Team:
       <select id="teamFilter"><option value="">All Teams</option></select>
@@ -67,124 +69,141 @@
   </div>
 
   <div id="status"></div>
+
+  <!-- Roster table -->
   <table>
     <thead id="thead"></thead>
     <tbody id="tbody"></tbody>
   </table>
 
-<script>
-(async()=>{
-  try {
-    // 1. Load workbooks from root
-    const [rB, oB] = await Promise.all([
-      fetch('roster_template_final.xlsx').then(r=>r.arrayBuffer()),
-      fetch('overrides.xlsx').then(r=>r.arrayBuffer())
-    ]);
-    const rWb = XLSX.read(rB,{type:'array'}),
-          oWb = XLSX.read(oB,{type:'array'}),
-          roster    = XLSX.utils.sheet_to_json(rWb.Sheets['Roster'],{header:1}),
-          pattern   = XLSX.utils.sheet_to_json(rWb.Sheets['RotationPattern'],{header:1}),
-          overrides = XLSX.utils.sheet_to_json(oWb.Sheets[oWb.SheetNames[0]],{header:1});
+  <script>
+  (async ()=>{
+    try {
+      // 1) Load both Excel files from repo root
+      const [rBuf, oBuf] = await Promise.all([
+        fetch('roster_template_final.xlsx').then(r=>r.arrayBuffer()),
+        fetch('overrides.xlsx').then(r=>r.arrayBuffer())
+      ]);
+      const rWb = XLSX.read(rBuf,{type:'array'}),
+            oWb = XLSX.read(oBuf,{type:'array'}),
+            roster    = XLSX.utils.sheet_to_json(rWb.Sheets['Roster'],{header:1}),
+            pattern   = XLSX.utils.sheet_to_json(rWb.Sheets['RotationPattern'],{header:1}),
+            overrides = XLSX.utils.sheet_to_json(oWb.Sheets[oWb.SheetNames[0]],{header:1});
 
-    // 2. Build override map
-    const ovMap = {};
-    overrides.slice(1).forEach(r=> {
-      const [eno,date,code] = r;
-      ovMap[`${eno}|${date}`] = code;
-    });
-
-    // 3. Populate Team dropdown
-    const teams = Array.from(new Set(roster.slice(1).map(r=>r[3])));
-    const tf = document.getElementById('teamFilter');
-    teams.forEach(t=> tf.innerHTML+=`<option>${t}</option>`);
-
-    // 4. Default Start/End to current week (Mon→Sun)
-    const sdI = document.getElementById('startDate'),
-          edI = document.getElementById('endDate'),
-          today = new Date(), dow = today.getDay(),
-          mon   = new Date(today), sun = new Date(today);
-    mon.setDate(today.getDate() - ((dow+6)%7));
-    sun.setDate(mon.getDate() + 6);
-    sdI.valueAsDate = mon; edI.valueAsDate = sun;
-
-    // 5. Wire controls
-    const reload = document.getElementById('reloadBtn');
-    [reload, tf, document.getElementById('empFilter'), sdI, edI]
-      .forEach(el=> el.addEventListener('change', render));
-    render();
-
-    // render function
-    function render(){
-      const [hdr, ...rows] = roster,
-            team = tf.value,
-            empF = document.getElementById('empFilter').value.trim(),
-            sd = new Date(sdI.value), ed = new Date(edI.value),
-            status = document.getElementById('status');
-
-      // Validate dates
-      if (isNaN(sd)||isNaN(ed)||ed<sd){
-        status.innerText = '⚠️ Please pick a valid Start ≤ End date.';
-      } else {
-        status.innerText = '';
-      }
-
-      // Build date list
-      let dates=[];
-      for(let d=new Date(sd); d<=ed; d.setDate(d.getDate()+1)){
-        dates.push(new Date(d));
-      }
-
-      // THEAD
-      let ths = '<tr><th>Name</th><th>Emp No.</th><th>QUALIFICATIONS</th><th>Team</th>';
-      dates.forEach(d=>{
-        const dd=String(d.getDate()).padStart(2,'0'),
-              mm=String(d.getMonth()+1).padStart(2,'0');
-        ths+=`<th>${dd}/${mm}</th>`;
+      // 2) Build override lookup
+      const ovMap = {};
+      overrides.slice(1).forEach(r=>{
+        const [eno, date, code] = r;
+        ovMap[`${eno}|${date}`] = code;
       });
-      ths+='</tr>';
-      document.getElementById('thead').innerHTML = ths;
 
-      // Constants for pattern lookup
-      const refMon = new Date(2025,5,30),
-            msDay  = 1000*60*60*24;
+      // 3) Cache DOM elements
+      const teamSel  = document.getElementById('teamFilter'),
+            empInput = document.getElementById('empFilter'),
+            sdInput  = document.getElementById('startDate'),
+            edInput  = document.getElementById('endDate'),
+            reloadBtn= document.getElementById('reloadBtn'),
+            statusEl = document.getElementById('status');
 
-      // TBODY
-      let body='';
-      rows.filter(r=>
-        (!team || r[3]==team) &&
-        (!empF || String(r[1]).includes(empF))
-      ).forEach(r=>{
-        let tr = `<tr>
-          <td>${r[0]}</td>
-          <td>${r[1]}</td>
-          <td>${r[2]}</td>
-          <td>${r[3]}</td>`;
+      // 4) Populate Team dropdown
+      Array.from(new Set(roster.slice(1).map(r=>r[3])))
+        .forEach(t=> teamSel.innerHTML += `<option>${t}</option>`);
+
+      // 5) Default Start/End to this week's Mon→Sun
+      const today = new Date(),
+            dow   = today.getDay(),         // 0=Sun..6=Sat
+            mon   = new Date(today),
+            sun   = new Date(today);
+      mon.setDate(today.getDate() - ((dow+6)%7));
+      sun.setDate(mon.getDate() + 6);
+      sdInput.valueAsDate = mon;
+      edInput.valueAsDate = sun;
+
+      // 6) Wire up events
+      [teamSel, empInput, sdInput, edInput].forEach(el=>
+        el.addEventListener('change', render)
+      );
+      reloadBtn.addEventListener('click', render);
+
+      // 7) Initial render
+      render();
+
+      // --- render() definition ---
+      function render(){
+        const [hdr, ...rows] = roster,
+              team = teamSel.value,
+              empF = empInput.value.trim(),
+              sd   = new Date(sdInput.value),
+              ed   = new Date(edInput.value);
+
+        // Validate dates
+        if (isNaN(sd) || isNaN(ed) || ed < sd) {
+          statusEl.innerText = '⚠️ Please pick valid Start ≤ End dates';
+        } else {
+          statusEl.innerText = '';
+        }
+
+        // Build date list
+        const dates = [];
+        for(let d=new Date(sd); d<=ed; d.setDate(d.getDate()+1)){
+          dates.push(new Date(d));
+        }
+
+        // Render table header
+        let ths = '<tr><th>Name</th><th>Emp No.</th><th>QUALIFICATIONS</th><th>Team</th>';
         dates.forEach(d=>{
-          const dd=String(d.getDate()).padStart(2,'0'),
-                mm=String(d.getMonth()+1).padStart(2,'0'),
-                iso=`2025-${mm}-${dd}`,
-                key=`${r[1]}|${iso}`,
-                ov = ovMap[key],
-                code = ov || (()=> {
-                  const daysSince = Math.floor((d - refMon)/msDay),
-                        wk = (Math.floor(daysSince/7)%5)+1,
-                        dow = d.getDay()||7,
-                        pat = pattern[wk][dow];
-                  return pat;
-                })();
-          tr+=`<td class="shift-${code}">${code}</td>`;
+          const dd = String(d.getDate()).padStart(2,'0'),
+                mm = String(d.getMonth()+1).padStart(2,'0');
+          ths += `<th>${dd}/${mm}</th>`;
         });
-        tr+='</tr>';
-        body+=tr;
-      });
-      document.getElementById('tbody').innerHTML = body;
+        ths += '</tr>';
+        document.getElementById('thead').innerHTML = ths;
+
+        // Constants for rotation lookup
+        const refMon = new Date(2025,5,30), // Mon 30 Jun 2025
+              msDay  = 1000*60*60*24;
+
+        // Render body
+        let body = '';
+        rows
+          .filter(r=> (!team||r[3]==team) && (!empF||String(r[1]).includes(empF)))
+          .forEach(r=>{
+            let tr = `<tr>
+              <td>${r[0]}</td>
+              <td>${r[1]}</td>
+              <td>${r[2]}</td>
+              <td>${r[3]}</td>`;
+
+            dates.forEach(d=>{
+              const dd   = String(d.getDate()).padStart(2,'0'),
+                    mm   = String(d.getMonth()+1).padStart(2,'0'),
+                    iso  = `2025-${mm}-${dd}`,
+                    key  = `${r[1]}|${iso}`,
+                    ov   = ovMap[key];
+
+              let code = ov;
+              if (!ov) {
+                const daysSince = Math.floor((d - refMon)/msDay),
+                      wk  = (Math.floor(daysSince/7)%5)+1,
+                      dow = d.getDay()||7,
+                      pat = pattern[wk][dow];
+                code = pat;
+              }
+              tr += `<td class="shift-${code}">${code}</td>`;
+            });
+
+            tr += '</tr>';
+            body += tr;
+          });
+
+        document.getElementById('tbody').innerHTML = body;
+      }
     }
-  }
-  catch(err){
-    console.error(err);
-    document.getElementById('status').innerText = '❌ Load error: see console';
-  }
-})();
-</script>
+    catch(err){
+      console.error(err);
+      document.getElementById('status').innerText = '❌ Load error—see console';
+    }
+  })();
+  </script>
 </body>
 </html>
