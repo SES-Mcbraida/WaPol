@@ -1,178 +1,109 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Team Roster Viewer</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #e7effa;
-      margin: 20px;
-      color: #333;
+    body { font-family: Arial, sans-serif; background:#e7effa; color:#333; padding:1rem; }
+    h1 { text-align:center; margin-bottom:.5rem; }
+    .legend, .controls { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:1rem; }
+    .legend-item, .controls input, .controls select, .controls button {
+      padding:4px 8px; font-size:.9rem;
     }
-    h1 { text-align: center; }
-    .filters, .legend {
-      margin: 10px auto;
-      max-width: 1400px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-    }
-    .filters input, .filters select, .filters button {
-      padding: 5px;
-      font-size: 14px;
-    }
-    table {
-      width: 95%;
-      margin: 20px auto;
-      border-collapse: collapse;
-    }
-    th, td {
-      border: 1px solid #aaa;
-      padding: 5px;
-      text-align: center;
-      font-size: 13px;
-    }
-    th {
-      background: #003366;
-      color: #fff;
-    }
-    .legend button {
-      border: 1px solid #ccc;
-      padding: 4px 10px;
-      border-radius: 5px;
-      font-size: 12px;
-    }
-    .s-6 { background: #c0ffc0; }         /* Day */
-    .s-15 { background: #b3d9ff; }        /* Afternoon */
-    .s-16 { background: #add8e6; }        /* Late */
-    .s-17 { background: #e3b3ff; }        /* Evening */
-    .s-18 { background: #d3d3ff; }        /* Night */
-    .s-X { background: #f5f5f5; }         /* Day Off */
-    .s-AL { background: #ffff99; }        /* Annual Leave */
-    .s-CT { background: #ffcc66; }        /* Court */
-    .s-T { background: #dda0dd; }         /* Training */
-    .s-RS { background: #99ccff; }        /* Regional Shield */
-    .s-RDO { background: #ffcccc; }       /* Rostered Off */
-    .s-LSL { background: #ccffcc; }       /* Long Service Leave */
+    table { margin:0 auto; border-collapse:collapse; width:95%; }
+    th, td { border:1px solid #aaa; padding:5px; text-align:center; font-size:.85rem; }
+    th { background:#003366; color:#fff; position:sticky; top:0; }
+    /* shift colours */
+    .shift-6   { background:#c0ffc0 } /* Day:   06:00–16:00 */
+    .shift-15  { background:#b3d9ff } /* Aft:   15:00–01:00 */
+    .shift-16  { background:#add8e6 } /* Late:  16:00–02:00 */
+    .shift-17  { background:#e3b3ff } /* Even:  17:00–03:00 */
+    .shift-18  { background:#d3d3ff } /* Night: 18:00–07:00 (or adjust code if needed) */
+    .shift-X   { background:#f5f5f5 } /* Off */
+    .shift-AL  { background:#ffff99 }
+    .shift-CT  { background:#ffcc66 }
+    .shift-T   { background:#dda0dd }
+    .shift-RDO { background:#ffcccc }
+    .shift-LSL { background:#ccffcc }
+    .shift-RS  { background:#99ccff }
   </style>
 </head>
 <body>
   <h1>Team Roster Viewer</h1>
-  
+
   <div class="legend">
-    <button class="s-6">6—Day (06:00–16:00)</button>
-    <button class="s-15">15—Afternoon (15:00–01:00)</button>
-    <button class="s-16">16—Late (16:00–02:00)</button>
-    <button class="s-17">17—Evening (17:00–03:00)</button>
-    <button class="s-18">18—Night (21:00–07:00)</button>
-    <button class="s-X">X—Day Off</button>
-    <button class="s-AL">AL—Annual Leave</button>
-    <button class="s-CT">CT—Court</button>
-    <button class="s-T">T—Training</button>
-    <button class="s-RDO">RDO—Rostered Off</button>
-    <button class="s-LSL">LSL—Long Service</button>
-    <button class="s-RS">RS—Regional Shield</button>
+    <div class="legend-item shift-6">6—Day (06:00–16:00)</div>
+    <div class="legend-item shift-15">15—Afternoon (15:00–01:00)</div>
+    <div class="legend-item shift-16">16—Late (16:00–02:00)</div>
+    <div class="legend-item shift-17">17—Evening (17:00–03:00)</div>
+    <div class="legend-item shift-18">18—Night (18:00–07:00)</div>
+    <div class="legend-item shift-X">X—Off</div>
+    <div class="legend-item shift-AL">AL—Annual Leave</div>
+    <div class="legend-item shift-CT">CT—Court</div>
+    <div class="legend-item shift-T">T—Training</div>
+    <div class="legend-item shift-RDO">RDO—Off</div>
+    <div class="legend-item shift-LSL">LSL—Long Service</div>
+    <div class="legend-item shift-RS">RS—Regional Shield</div>
   </div>
 
-  <div class="filters">
-    <label for="team">Team:</label>
-    <select id="team">
-      <option value="All">All Teams</option>
-      <option value="1">Team 1</option>
-      <option value="2">Team 2</option>
-      <option value="3">Team 3</option>
-      <option value="4">Team 4</option>
-      <option value="5">Team 5</option>
-    </select>
-
-    <label for="empSearch">Emp No.:</label>
-    <input type="text" id="empSearch" placeholder="e.g. 204140">
-
-    <label for="startDate">Start:</label>
-    <input type="date" id="startDate">
-
-    <label for="endDate">End:</label>
-    <input type="date" id="endDate">
-
-    <button onclick="loadRoster()">Reload Files</button>
+  <div class="controls">
+    <label>Team:
+      <select id="teamFilter"><option value="">All</option></select>
+    </label>
+    <label>Emp No:
+      <input id="empFilter" type="text" placeholder="e.g. 204140">
+    </label>
+    <label>Start:
+      <input id="startDate" type="date">
+    </label>
+    <label>End:
+      <input id="endDate" type="date">
+    </label>
+    <button id="reloadBtn">Reload</button>
   </div>
 
-  <table id="rosterTable">
-    <thead id="tableHead"></thead>
-    <tbody id="tableBody"></tbody>
+  <div id="status" style="text-align:center; font-weight:bold;"></div>
+  <table>
+    <thead id="thead"></thead>
+    <tbody id="tbody"></tbody>
   </table>
 
-  <script>
-    let rosterData = [], overrideData = [];
+<script>
+(async()=>{
+  // fetch & parse both spreadsheets
+  const [rBuf, oBuf] = await Promise.all([
+    fetch('roster_template_final.xlsx').then(r=>r.arrayBuffer()),
+    fetch('overrides.xlsx').then(r=>r.arrayBuffer())
+  ]);
+  const rWb = XLSX.read(rBuf,{type:'array'}),
+        oWb = XLSX.read(oBuf,{type:'array'}),
+        roster = XLSX.utils.sheet_to_json(rWb.Sheets['Roster'],{header:1}),
+        pattern = XLSX.utils.sheet_to_json(rWb.Sheets['RotationPattern'],{header:1}),
+        overrides= XLSX.utils.sheet_to_json(oWb.Sheets[oWb.SheetNames[0]],{header:1});
 
-    function loadRoster() {
-      Promise.all([
-        fetch("roster_template_final.xlsx").then(r => r.blob()),
-        fetch("overrides.xlsx").then(r => r.blob())
-      ]).then(async ([rosterBlob, overrideBlob]) => {
-        const [roster, overrides] = await Promise.all([
-          readExcel(rosterBlob),
-          readExcel(overrideBlob)
-        ]);
-        rosterData = roster;
-        overrideData = overrides;
-        renderTable();
-      });
-    }
+  // map overrides for quick lookup
+  const ovMap = {};
+  overrides.slice(1).forEach(r=>{
+    const [eno, date, code] = r;
+    ovMap[`${eno}|${date}`] = code;
+  });
 
-    function readExcel(blob) {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          const workbook = XLSX.read(e.target.result, {type: 'binary'});
-          const sheetName = workbook.SheetNames[0];
-          const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
-          resolve(data);
-        };
-        reader.readAsBinaryString(blob);
-      });
-    }
+  // Populate Team dropdown
+  const teamSet = new Set(roster.slice(1).map(r=>r[3]));
+  const teamSel = document.getElementById('teamFilter');
+  teamSet.forEach(t=> teamSel.innerHTML += `<option>${t}</option>`);
 
-    function renderTable() {
-      const team = document.getElementById('team').value;
-      const empSearch = document.getElementById('empSearch').value.trim();
-      const start = new Date(document.getElementById('startDate').value);
-      const end = new Date(document.getElementById('endDate').value);
+  document.getElementById('reloadBtn').onclick = render;
+  render();
 
-      const dates = Object.keys(rosterData[0] || {}).filter(k => /^\d{2}\/\d{2}$/.test(k));
-      const filteredDates = dates.filter(d => {
-        const fullDate = new Date(`2025/${d.split("/").reverse().join("/")}`);
-        return (!isNaN(start) ? fullDate >= start : true) &&
-               (!isNaN(end) ? fullDate <= end : true);
-      });
+  function render(){
+    const hdr=roster[0], rows=roster.slice(1),
+          team=teamSel.value, empFilter=document.getElementById('empFilter').value.trim(),
+          sd=new Date(document.getElementById('startDate').value),
+          ed=new Date(document.getElementById('endDate').value);
 
-      const headRow = ["Name", "Emp No.", "Team", ...filteredDates.map(d => d)];
-      const headHTML = `<tr>${headRow.map(h => `<th>${h}</th>`).join("")}</tr>`;
-      document.getElementById("tableHead").innerHTML = headHTML;
-
-      const body = rosterData
-        .filter(r => (team === "All" || r["Team"] == team))
-        .filter(r => (empSearch ? r["Emp No."].toString().includes(empSearch) : true))
-        .map(r => {
-          const row = [`<td>${r["Name"]}</td>`, `<td>${r["Emp No."]}</td>`, `<td>${r["Team"]}</td>`];
-          for (const d of filteredDates) {
-            const dateISO = `2025-${d.split("/").reverse().join("-")}`;
-            const override = overrideData.find(o => o["Emp No."] == r["Emp No."] && o["Date"] === dateISO);
-            const value = override ? override["Override Code"] : r[d];
-            const cls = `s-${value}`;
-            row.push(`<td class="${cls}">${value}</td>`);
-          }
-          return `<tr>${row.join("")}</tr>`;
-        });
-
-      document.getElementById("tableBody").innerHTML = body.join("");
-    }
-
-    // Auto-load on startup
-    loadRoster();
-  </script>
-</body>
-</html>
+    // build date list from sd to ed
+    if(isNaN(sd)|| isNaN(ed)) {
+      document.getEleme
