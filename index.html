@@ -4,37 +4,58 @@
   <meta charset="UTF-8" />
   <title>Team Roster Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <!--
+    Inline CSS styles to define the look and feel of the page:
+    - body background, font, padding
+    - table appearance, sticky headers
+    - colour-coded shift classes
+  -->
   <style>
+    /* Page layout and typography */
     body { font-family: Arial, sans-serif; background: #e6f0ff; color: #003366; padding: 1rem; }
     h1 { text-align: center; }
+
+    /* Controls (dropdown and button) styling */
     .controls { text-align: center; margin-bottom: 1rem; }
-    select, button { padding: 5px; font-size: 0.9rem; }
+    select, button { padding: 5px; font-size: 0.9rem; margin: 0 5px; }
+
+    /* Status text (loading, errors, etc.) */
     #status { text-align: center; margin: 10px 0; font-weight: bold; }
+
+    /* Table */
+
     table { border-collapse: collapse; width: 100%; overflow-x: auto; display: block; }
     th, td { padding: 8px; border: 1px solid #ccc; text-align: center; font-size: 0.9rem; }
     th { background: #0059b3; color: white; position: sticky; top: 0; z-index: 1; }
-    input.shift-input { width: 100%; border: none; text-align: center; background: transparent; }
+
+    /* Input cells for shifts: transparent until editable */
+    input.shift-input { width: 100%; border: none; background: transparent; text-align: center; }
+
+    /* Legend layout */
     .legend { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
     .legend-item { padding: 5px 10px; font-size: 0.8rem; border-radius: 4px; border: 1px solid #ccc; }
-    /* Shift colours */
-    .shift-6     { background: #d6f5d6; }
-    .shift-15    { background: #cce5ff; }
-    .shift-16    { background: #99ccff; }
-    .shift-17    { background: #e0ccff; }
-    .shift-18    { background: #f2f2f2; }
-    .shift-X     { background: #ffcccb; }
-    .shift-AL    { background: #fff7a0; }
-    .shift-CT    { background: #ffc966; }
-    .shift-T     { background: #d9b3ff; }
-    .shift-RDO   { background: #ffd6d6; }
-    .shift-LSL   { background: #c2f0c2; }
-    .shift-RS    { background: #b3e6ff; }
+
+    /* Colour coding for each shift code via CSS classes */
+    .shift-6     { background: #d6f5d6; }  /* Day shift */
+    .shift-15    { background: #cce5ff; }  /* Afternoon */
+    .shift-16    { background: #99ccff; }  /* Late */
+    .shift-17    { background: #e0ccff; }  /* Evening */
+    .shift-18    { background: #f2f2f2; }  /* Night */
+    .shift-X     { background: #ffcccb; }  /* Off day */
+    .shift-AL    { background: #fff7a0; }  /* Annual leave */
+    .shift-CT    { background: #ffc966; }  /* Court */
+    .shift-T     { background: #d9b3ff; }  /* Training */
+    .shift-RDO   { background: #ffd6d6; }  /* Rostered day off */
+    .shift-LSL   { background: #c2f0c2; }  /* Long service */
+    .shift-RS    { background: #b3e6ff; }  /* Regional shield */
   </style>
 </head>
 <body>
 
+  <!-- Page Title -->
   <h1>Team Roster Viewer</h1>
 
+  <!-- Controls: view presets + reload button -->
   <div class="controls">
     <label for="preset">View:</label>
     <select id="preset">
@@ -46,9 +67,12 @@
     <button id="refreshBtn">Reload Roster File</button>
   </div>
 
-  <div id="status">Initializing...</div>
+  <!-- Status line for load/error messages -->
+  <div id="status">Initializing…</div>
+  <!-- Container where the table will be injected -->
   <div id="table-container"></div>
 
+  <!-- Legend explaining shift codes -->
   <div class="legend">
     <span class="legend-item shift-6">6 – Day</span>
     <span class="legend-item shift-15">15 – Afternoon</span>
@@ -64,87 +88,133 @@
     <span class="legend-item shift-X">X – Day Off</span>
   </div>
 
+  <!-- Include xlsx library for reading Excel files in-browser -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
-    let fullRoster = [];
+    // Global variables: will hold the full roster data and edit flag
+    let fullRoster = [], canEdit = false;
 
+    // 1) On window load: ask for edit password, then load file
+    window.addEventListener('load', () => {
+      const pwd = prompt("Enter edit password:");
+      if (pwd === 'password') {
+        canEdit = true;
+        document.getElementById('status').innerText = "Edit mode enabled";
+      } else {
+        document.getElementById('status').innerText = "Read-only mode";
+      }
+      loadRosterFile();  // initial file load
+    });
+
+    /**
+     * Returns the CSS class for a given shift code
+     */
     function getShiftClass(val) {
-      return 'shift-' + (val||'').toString().toUpperCase();
+      return 'shift-' + (val || '').toString().toUpperCase();
     }
 
+    /**
+     * Renders the table given a 2D array (rows) of data
+     * data[0] = headers, data[1..] = rows
+     */
     function renderTable(data) {
-      document.getElementById('status').innerText = '';
-      const hdr = data[0], rows = data.slice(1);
-      let html = '<table><thead><tr>' + hdr.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
-      rows.forEach(r=>{
-        html += '<tr>' + r.map((c,i)=>{
-          if(i<6) return `<td>${c||''}</td>`;
-          const cls = getShiftClass(c);
-          return `<td class="${cls}"><input class="shift-input" value="${c||''}"
-            oninput="this.parentElement.className=getShiftClass(this.value)" /></td>`;
-        }).join('') + '</tr>';
-      });
+      const container = document.getElementById('table-container');
+      let html = '<table><thead><tr>';
+      const headers = data[0];
+      headers.forEach(h => html += `<th>${h}</th>`);
+      html += '</tr></thead><tbody>';
+
+      // Loop through each row of data
+      for (let i = 1; i < data.length; i++) {
+        html += '<tr>';
+        data[i].forEach((cell, j) => {
+          if (j < 6) {
+            // First 6 cols are static (Name, Emp No, AR, CSX, LO, Note)
+            html += `<td>${cell || ''}</td>`;
+          } else {
+            // For shift cells, wrap in input for editability
+            const cls = getShiftClass(cell);
+            html += `<td class="${cls}">
+                       <input class="shift-input" value="${cell||''}"
+                         ${canEdit ? '' : 'disabled'}
+                         oninput="this.parentElement.className = getShiftClass(this.value)" />
+                     </td>`;
+          }
+        });
+        html += '</tr>';
+      }
       html += '</tbody></table>';
-      document.getElementById('table-container').innerHTML = html;
+      container.innerHTML = html;
     }
 
+    /**
+     * Fetches the Excel file, parses it, and stores+renders the roster
+     */
     function loadRosterFile() {
-      const status = document.getElementById('status');
-      status.innerText = 'Loading roster_template_final.xlsx…';
+      document.getElementById('status').innerText = canEdit
+        ? "Loading file (edit mode)…"
+        : "Loading file (read-only)…";
+
       fetch('roster_template_final.xlsx?cacheBust=' + Date.now())
-        .then(res=>{
-          if(!res.ok) throw new Error('HTTP ' + res.status);
+        .then(res => {
+          if (!res.ok) throw new Error('File not found (' + res.status + ')');
           return res.arrayBuffer();
         })
-        .then(buf=>{
-          const wb = XLSX.read(buf,{type:'array'});
-          const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
-          fullRoster = data;
-          renderTable(data);
-          status.innerText = 'Roster loaded.';
-          document.getElementById('preset').value='';
+        .then(buf => {
+          const wb = XLSX.read(buf, { type: 'array' });
+          fullRoster = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1 });
+          renderTable(fullRoster);
+          document.getElementById('status').innerText = canEdit
+            ? "Roster loaded (edit mode)"
+            : "Roster loaded";
+          document.getElementById('preset').value = '';
         })
-        .catch(err=>{
-          document.getElementById('status').innerText = '❌ Could not load roster_template_final.xlsx';
+        .catch(err => {
+          document.getElementById('status').innerText = '❌ Could not load Excel';
           document.getElementById('table-container').innerText = err.message;
           console.error(err);
         });
     }
 
-    function loadRosterForDates(start,end) {
+    /**
+     * Filters the full roster by a date range and re-renders
+     */
+    function loadRosterForDates(start, end) {
       const hdr = fullRoster[0];
-      const dateCols = hdr.map((h,i)=>{
+      // Identify date columns by regex on header
+      const dateCols = hdr.map((h,i) => {
         const m = h.match(/(\d{2})\/(\d{2})/);
-        if(m) {
-          const d=new Date(new Date().getFullYear(),+m[2]-1,+m[1]);
-          return {i,date:d};
+        if (m) {
+          const d = new Date(new Date().getFullYear(), +m[2]-1, +m[1]);
+          return { idx: i, date: d };
         }
-        return null;
-      }).filter(x=>x);
-      const cols = dateCols.filter(x=>x.date>=start && x.date<=end).map(x=>x.i);
-      const newHdr = hdr.slice(0,6).concat(cols.map(i=>hdr[i]));
-      const newRows = fullRoster.slice(1).map(r=>r.slice(0,6).concat(cols.map(i=>r[i])));
-      renderTable([newHdr,...newRows]);
+      }).filter(x => x);
+
+      // Filter columns in range [start, end]
+      const cols = dateCols.filter(x => x.date >= start && x.date <= end).map(x => x.idx);
+      const newHdr = hdr.slice(0,6).concat(cols.map(i => hdr[i]));
+      const newRows = fullRoster.slice(1).map(r => r.slice(0,6).concat(cols.map(i => r[i])));
+      renderTable([newHdr, ...newRows]);
     }
 
+    // Bind UI events
     document.getElementById('refreshBtn').onclick = loadRosterFile;
-    document.getElementById('preset').onchange = function(){
-      const t=new Date(),opt=this.value; let s,e;
-      if(opt==='week') {
-        const d=t.getDay(); s=new Date(t); s.setDate(t.getDate()-d);
-        e=new Date(s); e.setDate(s.getDate()+6);
-      } else if(opt==='month') {
-        s=new Date(t.getFullYear(),t.getMonth(),1);
-        e=new Date(t.getFullYear(),t.getMonth()+1,0);
-      } else if(opt==='next') {
-        s=new Date(t.getFullYear(),t.getMonth()+1,1);
-        e=new Date(t.getFullYear(),t.getMonth()+2,0);
+    document.getElementById('preset').onchange = function() {
+      const now = new Date(), opt = this.value;
+      let s, e;
+      if (opt === 'week') {
+        const d = now.getDay();
+        s = new Date(now); s.setDate(now.getDate() - d);
+        e = new Date(s); e.setDate(s.getDate() + 6);
+      } else if (opt === 'month') {
+        s = new Date(now.getFullYear(), now.getMonth(), 1);
+        e = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      } else if (opt === 'next') {
+        s = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        e = new Date(now.getFullYear(), now.getMonth() + 2, 0);
       } else return;
-      loadRosterForDates(s,e);
+      loadRosterForDates(s, e);
     };
-
-    // Initial
-    loadRosterFile();
   </script>
 </body>
 </html>
