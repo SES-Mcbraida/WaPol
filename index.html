@@ -12,36 +12,51 @@
       padding: 1rem;
     }
     h1 { text-align: center; }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
-    select, input[type="date"] {
-      padding: 6px;
-      font-size: 1rem;
-    }
+
     table {
       border-collapse: collapse;
       width: 100%;
       overflow-x: auto;
       display: block;
     }
+
     th, td {
       padding: 8px;
       border: 1px solid #ccc;
       text-align: center;
       font-size: 0.9rem;
     }
+
     th {
       background-color: #0059b3;
       color: white;
-      cursor: pointer;
+      position: sticky;
+      top: 0;
+      z-index: 1;
     }
 
-    /* Colour coding */
+    input.shift-input {
+      width: 100%;
+      border: none;
+      text-align: center;
+      background: transparent;
+    }
+
+    .legend {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .legend-item {
+      padding: 5px 10px;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
     .shift-6     { background-color: #d6f5d6; }
     .shift-15    { background-color: #cce5ff; }
     .shift-16    { background-color: #99ccff; }
@@ -54,41 +69,14 @@
     .shift-RDO   { background-color: #ffd6d6; }
     .shift-LSL   { background-color: #c2f0c2; }
     .shift-RS    { background-color: #b3e6ff; }
-
-    .legend-box {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 6px;
-      margin-top: 20px;
-    }
-    .legend-item {
-      padding: 5px 10px;
-      font-size: 0.8rem;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
   </style>
 </head>
 <body>
+
   <h1>Team Roster Viewer</h1>
+  <div id="table-container">Loading...</div>
 
-  <div class="controls">
-    <label for="preset">Start Date Preset:</label>
-    <select id="preset">
-      <option value="">Select a Week</option>
-      <option value="2024-07-01">Week of 1 July</option>
-      <option value="2024-08-05">Week of 5 August</option>
-      <option value="2024-09-09">Week of 9 September</option>
-    </select>
-
-    <label>Start Date:</label>
-    <input type="date" id="start-date" />
-    <label>End Date:</label>
-    <input type="date" id="end-date" />
-  </div>
-
-  <div class="legend-box">
+  <div class="legend">
     <span class="legend-item shift-6">6 – Day</span>
     <span class="legend-item shift-15">15 – Afternoon</span>
     <span class="legend-item shift-16">16 – Late</span>
@@ -103,79 +91,56 @@
     <span class="legend-item shift-X">X – Day Off</span>
   </div>
 
-  <div id="table-container">Please select dates above to display the roster.</div>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
-    document.getElementById("preset").addEventListener("change", function () {
-      const start = this.value;
-      if (start) {
-        const end = new Date(start);
-        end.setDate(end.getDate() + 34);
-        document.getElementById("start-date").value = start;
-        document.getElementById("end-date").value = end.toISOString().slice(0, 10);
-        loadRoster(start, end.toISOString().slice(0, 10));
-      }
-    });
-
-    document.getElementById("start-date").addEventListener("change", triggerLoad);
-    document.getElementById("end-date").addEventListener("change", triggerLoad);
-
-    function triggerLoad() {
-      const start = document.getElementById("start-date").value;
-      const end = document.getElementById("end-date").value;
-      if (start && end) {
-        loadRoster(start, end);
-      }
+    function getShiftClass(value) {
+      const code = (value || '').toUpperCase();
+      return `shift-${code}`;
     }
 
-    function generateHeaders(startDate, endDate) {
-      const headers = ["Name", "Emp No.", "AR", "CSX", "LO", "Note"];
-      let current = new Date(startDate);
-      while (current <= new Date(endDate)) {
-        headers.push(current.toLocaleDateString('en-AU', { weekday: 'short', day: '2-digit', month: '2-digit' }));
-        current.setDate(current.getDate() + 1);
+    function renderTable(data) {
+      const container = document.getElementById("table-container");
+      let html = "<table><thead><tr>";
+
+      // headers
+      const headers = data[0];
+      for (let header of headers) {
+        html += `<th>${header}</th>`;
       }
-      return headers;
-    }
+      html += "</tr></thead><tbody>";
 
-    function loadRoster(start, end) {
-      fetch("roster_template_with_notes.xlsx")
-        .then(res => res.arrayBuffer())
-        .then(data => {
-          const workbook = XLSX.read(data, { type: "array" });
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-
-          const startDate = new Date(start);
-          const endDate = new Date(end);
-          const headers = generateHeaders(startDate, endDate);
-          const colOffset = 6;
-
-          let html = "<table><thead><tr>";
-          headers.forEach(h => html += `<th>${h}</th>`);
-          html += "</tr></thead><tbody>";
-
-          for (let i = 1; i < rows.length; i++) {
-            const r = rows[i];
-            html += "<tr>";
-            for (let j = 0; j < headers.length; j++) {
-              let val = r[j] || "";
-              let cls = "";
-              if (j >= colOffset) cls = `shift-${val.toString().toUpperCase()}`;
-              html += `<td class="${cls}">${val}</td>`;
-            }
-            html += "</tr>";
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        html += "<tr>";
+        for (let j = 0; j < headers.length; j++) {
+          if (j < 6) {
+            html += `<td>${row[j] || ""}</td>`;
+          } else {
+            const val = row[j] || "";
+            const cls = getShiftClass(val);
+            html += `<td class="${cls}"><input class="shift-input" value="${val}" oninput="this.parentElement.className = 'shift-' + this.value.toUpperCase()" /></td>`;
           }
+        }
+        html += "</tr>";
+      }
 
-          html += "</tbody></table>";
-          document.getElementById("table-container").innerHTML = html;
-        })
-        .catch(e => {
-          document.getElementById("table-container").innerText = "Error loading file.";
-          console.error(e);
-        });
+      html += "</tbody></table>";
+      container.innerHTML = html;
     }
+
+    fetch("roster_template_final.xlsx")
+      .then(res => res.arrayBuffer())
+      .then(data => {
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        renderTable(rows);
+      })
+      .catch(err => {
+        document.getElementById("table-container").innerText = "Error loading file.";
+        console.error(err);
+      });
   </script>
+
 </body>
 </html>
