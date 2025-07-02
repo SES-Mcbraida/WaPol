@@ -69,11 +69,40 @@
     .shift-RDO   { background-color: #ffd6d6; }
     .shift-LSL   { background-color: #c2f0c2; }
     .shift-RS    { background-color: #b3e6ff; }
+
+    .controls {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+
+    select, button {
+      padding: 5px;
+      font-size: 0.9rem;
+    }
+
+    #status {
+      text-align: center;
+      margin: 10px 0;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
 
   <h1>Team Roster Viewer</h1>
+
+  <div class="controls">
+    <label for="preset">View:</label>
+    <select id="preset">
+      <option value="">-- Select --</option>
+      <option value="week">Current Week</option>
+      <option value="month">Current Month</option>
+      <option value="next">Next Month</option>
+    </select>
+    <button id="refreshBtn">Reload Roster File</button>
+  </div>
+
+  <div id="status"></div>
   <div id="table-container">Loading...</div>
 
   <div class="legend">
@@ -102,7 +131,6 @@
       const container = document.getElementById("table-container");
       let html = "<table><thead><tr>";
 
-      // headers
       const headers = data[0];
       for (let header of headers) {
         html += `<th>${header}</th>`;
@@ -128,19 +156,82 @@
       container.innerHTML = html;
     }
 
-    fetch("roster_template_final.xlsx")
-      .then(res => res.arrayBuffer())
-      .then(data => {
-        const workbook = XLSX.read(data, { type: "array" });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
-        renderTable(rows);
-      })
-      .catch(err => {
-        document.getElementById("table-container").innerText = "Error loading file.";
-        console.error(err);
-      });
-  </script>
+    function loadRosterForDates(startDate, endDate) {
+      const headers = fullRoster[0];
+      const dateCols = headers.map((h, idx) => {
+        if (/\d{2}\/\d{2}/.test(h)) {
+          const [day, month] = h.split('/').map(Number);
+          const year = new Date().getFullYear();
+          const date = new Date(year, month - 1, day);
+          return { idx, date };
+        }
+        return null;
+      }).filter(Boolean);
 
+      const filteredCols = dateCols
+        .filter(dc => dc.date >= startDate && dc.date <= endDate)
+        .map(dc => dc.idx);
+
+      const staticCols = headers.slice(0, 6);
+      const filteredHeaders = [...staticCols, ...filteredCols.map(i => headers[i])];
+
+      const newRows = fullRoster.map(row => {
+        const base = row.slice(0, 6);
+        const filtered = filteredCols.map(i => row[i]);
+        return [...base, ...filtered];
+      });
+
+      renderTable([filteredHeaders, ...newRows.slice(1)]);
+    }
+
+    document.getElementById("preset").addEventListener("change", function () {
+      const value = this.value;
+      const today = new Date();
+      let start, end;
+
+      if (value === "week") {
+        const day = today.getDay();
+        start = new Date(today);
+        start.setDate(today.getDate() - day);
+        end = new Date(start);
+        end.setDate(start.getDate() + 6);
+      } else if (value === "month") {
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      } else if (value === "next") {
+        start = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+        end = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+      } else {
+        return;
+      }
+
+      loadRosterForDates(start, end);
+    });
+
+    function loadRosterFile() {
+      const status = document.getElementById("status");
+      status.innerText = "Loading roster file...";
+      fetch("roster_template_final.xlsx?cacheBust=" + new Date().getTime())
+        .then(res => res.arrayBuffer())
+        .then(data => {
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+          window.fullRoster = rows;
+          renderTable(rows);
+          status.innerText = "Roster loaded successfully.";
+          document.getElementById("preset").value = "";
+        })
+        .catch(err => {
+          status.innerText = "Error loading file.";
+          console.error(err);
+        });
+    }
+
+    document.getElementById("refreshBtn").addEventListener("click", loadRosterFile);
+
+    // Load on first visit
+    loadRosterFile();
+  </script>
 </body>
 </html>
