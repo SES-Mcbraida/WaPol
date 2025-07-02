@@ -1,26 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>Roster Viewer</title>
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css" />
   <style>
-    body { font-family: Arial, sans-serif; padding: 2rem; background: #f7f7f7; }
-    h1 { font-size: 1.5rem; margin-bottom: 1rem; }
-    input[type="file"] { margin-bottom: 1rem; }
-    table { width: 100%; background: white; border-collapse: collapse; }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #e6f0ff;
+      color: #003366;
+      padding: 2rem;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 1rem;
+    }
+    input[type="file"] {
+      margin: 1rem auto;
+      padding: 0.5rem;
+    }
+    table {
+      margin: 2rem auto;
+      border-collapse: collapse;
+      width: 90%;
+      background-color: #fff;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    th {
+      background-color: #0059b3;
+      color: white;
+    }
   </style>
 </head>
 <body>
-  <h1>Roster Viewer</h1>
+  <h1>Team Roster Viewer</h1>
   <input type="file" id="excelFile" accept=".xlsx, .xls" />
   <div id="table-container"></div>
 
-  <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
+    function excelDateToJSDate(serial) {
+      const excelEpoch = new Date(1899, 11, 30);
+      const result = new Date(excelEpoch.getTime() + serial * 86400000);
+      return result.toISOString().split('T')[0]; // format as YYYY-MM-DD
+    }
+
     document.getElementById("excelFile").addEventListener("change", function (e) {
       const reader = new FileReader();
       reader.readAsBinaryString(e.target.files[0]);
@@ -31,18 +59,22 @@
         const sheet = workbook.Sheets[sheetName];
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        let tableHtml = '<table id="rosterTable"><thead><tr>';
+        let tableHtml = '<table><thead><tr>';
         json[0].forEach(header => tableHtml += `<th>${header}</th>`);
         tableHtml += '</tr></thead><tbody>';
         json.slice(1).forEach(row => {
           tableHtml += '<tr>';
-          row.forEach(cell => tableHtml += `<td>${cell ?? ''}</td>`);
+          row.forEach(cell => {
+            if (typeof cell === 'number' && cell > 40000 && cell < 60000) {
+              cell = excelDateToJSDate(cell);
+            }
+            tableHtml += `<td>${cell ?? ''}</td>`;
+          });
           tableHtml += '</tr>';
         });
         tableHtml += '</tbody></table>';
 
         document.getElementById("table-container").innerHTML = tableHtml;
-        new DataTable("#rosterTable");
       };
     });
   </script>
