@@ -5,82 +5,30 @@
   <title>Team Roster Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #e6f0ff;
-      color: #003366;
-      padding: 1rem;
-    }
+    body { font-family: Arial, sans-serif; background: #e6f0ff; color: #003366; padding: 1rem; }
     h1 { text-align: center; }
-
-    .controls {
-      text-align: center;
-      margin-bottom: 1rem;
-    }
-    select, button {
-      padding: 5px;
-      font-size: 0.9rem;
-    }
-
-    #status {
-      text-align: center;
-      margin: 10px 0;
-      font-weight: bold;
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      overflow-x: auto;
-      display: block;
-    }
-    th, td {
-      padding: 8px;
-      border: 1px solid #ccc;
-      text-align: center;
-      font-size: 0.9rem;
-    }
-    th {
-      background-color: #0059b3;
-      color: white;
-      position: sticky;
-      top: 0;
-      z-index: 1;
-    }
-    input.shift-input {
-      width: 100%;
-      border: none;
-      text-align: center;
-      background: transparent;
-    }
-
-    .legend {
-      margin-top: 20px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-    }
-    .legend-item {
-      padding: 5px 10px;
-      font-size: 0.8rem;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
-
+    .controls { text-align: center; margin-bottom: 1rem; }
+    select, button { padding: 5px; font-size: 0.9rem; }
+    #status { text-align: center; margin: 10px 0; font-weight: bold; }
+    table { border-collapse: collapse; width: 100%; overflow-x: auto; display: block; }
+    th, td { padding: 8px; border: 1px solid #ccc; text-align: center; font-size: 0.9rem; }
+    th { background: #0059b3; color: white; position: sticky; top: 0; z-index: 1; }
+    input.shift-input { width: 100%; border: none; text-align: center; background: transparent; }
+    .legend { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    .legend-item { padding: 5px 10px; font-size: 0.8rem; border-radius: 4px; border: 1px solid #ccc; }
     /* Shift colours */
-    .shift-6     { background-color: #d6f5d6; }
-    .shift-15    { background-color: #cce5ff; }
-    .shift-16    { background-color: #99ccff; }
-    .shift-17    { background-color: #e0ccff; }
-    .shift-18    { background-color: #f2f2f2; }
-    .shift-X     { background-color: #ffcccb; }
-    .shift-AL    { background-color: #fff7a0; }
-    .shift-CT    { background-color: #ffc966; }
-    .shift-T     { background-color: #d9b3ff; }
-    .shift-RDO   { background-color: #ffd6d6; }
-    .shift-LSL   { background-color: #c2f0c2; }
-    .shift-RS    { background-color: #b3e6ff; }
+    .shift-6     { background: #d6f5d6; }
+    .shift-15    { background: #cce5ff; }
+    .shift-16    { background: #99ccff; }
+    .shift-17    { background: #e0ccff; }
+    .shift-18    { background: #f2f2f2; }
+    .shift-X     { background: #ffcccb; }
+    .shift-AL    { background: #fff7a0; }
+    .shift-CT    { background: #ffc966; }
+    .shift-T     { background: #d9b3ff; }
+    .shift-RDO   { background: #ffd6d6; }
+    .shift-LSL   { background: #c2f0c2; }
+    .shift-RS    { background: #b3e6ff; }
   </style>
 </head>
 <body>
@@ -98,8 +46,8 @@
     <button id="refreshBtn">Reload Roster File</button>
   </div>
 
-  <div id="status"></div>
-  <div id="table-container">Loading...</div>
+  <div id="status">Initializing...</div>
+  <div id="table-container"></div>
 
   <div class="legend">
     <span class="legend-item shift-6">6 – Day</span>
@@ -121,89 +69,81 @@
     let fullRoster = [];
 
     function getShiftClass(val) {
-      return `shift-${(val||'').toString().toUpperCase()}`;
+      return 'shift-' + (val||'').toString().toUpperCase();
     }
 
     function renderTable(data) {
-      document.getElementById("status").innerText = "";
-      const container = document.getElementById("table-container");
-      let html = "<table><thead><tr>";
-      const headers = data[0];
-      headers.forEach(h => html += `<th>${h}</th>`);
-      html += "</tr></thead><tbody>";
-      for (let i = 1; i < data.length; i++) {
-        html += "<tr>";
-        data[i].forEach((cell, j) => {
-          if (j < 6) {
-            html += `<td>${cell||''}</td>`;
-          } else {
-            const cls = getShiftClass(cell);
-            html += `<td class="${cls}"><input class="shift-input" value="${cell||''}"
-              oninput="this.parentElement.className = 'shift-' + this.value.toUpperCase()" /></td>`;
-          }
-        });
-        html += "</tr>";
-      }
-      html += "</tbody></table>";
-      container.innerHTML = html;
+      document.getElementById('status').innerText = '';
+      const hdr = data[0], rows = data.slice(1);
+      let html = '<table><thead><tr>' + hdr.map(h=>`<th>${h}</th>`).join('') + '</tr></thead><tbody>';
+      rows.forEach(r=>{
+        html += '<tr>' + r.map((c,i)=>{
+          if(i<6) return `<td>${c||''}</td>`;
+          const cls = getShiftClass(c);
+          return `<td class="${cls}"><input class="shift-input" value="${c||''}"
+            oninput="this.parentElement.className=getShiftClass(this.value)" /></td>`;
+        }).join('') + '</tr>';
+      });
+      html += '</tbody></table>';
+      document.getElementById('table-container').innerHTML = html;
     }
 
     function loadRosterFile() {
-      const status = document.getElementById("status");
-      status.innerText = "Loading roster file...";
-      fetch("roster_template_final.xlsx?cacheBust=" + Date.now())
-        .then(r => r.arrayBuffer())
-        .then(buf => {
-          const wb = XLSX.read(buf, { type: "array" });
-          const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header:1 });
-          fullRoster = rows;
-          renderTable(rows);
-          status.innerText = "Roster loaded successfully.";
-          document.getElementById("preset").value = "";
+      const status = document.getElementById('status');
+      status.innerText = 'Loading roster_template_final.xlsx…';
+      fetch('roster_template_final.xlsx?cacheBust=' + Date.now())
+        .then(res=>{
+          if(!res.ok) throw new Error('HTTP ' + res.status);
+          return res.arrayBuffer();
         })
-        .catch(e => {
-          document.getElementById("status").innerText = "Error loading file.";
-          console.error(e);
+        .then(buf=>{
+          const wb = XLSX.read(buf,{type:'array'});
+          const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+          fullRoster = data;
+          renderTable(data);
+          status.innerText = 'Roster loaded.';
+          document.getElementById('preset').value='';
+        })
+        .catch(err=>{
+          document.getElementById('status').innerText = '❌ Could not load roster_template_final.xlsx';
+          document.getElementById('table-container').innerText = err.message;
+          console.error(err);
         });
     }
 
-    function loadRosterForDates(start, end) {
-      const headers = fullRoster[0];
-      const dateCols = headers.map((h,i) => {
-        const m = h.match(/(\\d{2})\\/(\\d{2})/);
-        if (m) {
-          const [_, dd, mm] = m;
-          const dt = new Date(new Date().getFullYear(), +mm-1, +dd);
-          return { idx:i, date: dt };
+    function loadRosterForDates(start,end) {
+      const hdr = fullRoster[0];
+      const dateCols = hdr.map((h,i)=>{
+        const m = h.match(/(\d{2})\/(\d{2})/);
+        if(m) {
+          const d=new Date(new Date().getFullYear(),+m[2]-1,+m[1]);
+          return {i,date:d};
         }
         return null;
-      }).filter(Boolean);
-      const cols = dateCols.filter(c => c.date >= start && c.date <= end).map(c => c.idx);
-      const newHeaders = headers.slice(0,6).concat(cols.map(i=> headers[i]));
-      const newRows = fullRoster.slice(1).map(r => r.slice(0,6).concat(cols.map(i=>r[i])));
-      renderTable([newHeaders, ...newRows]);
+      }).filter(x=>x);
+      const cols = dateCols.filter(x=>x.date>=start && x.date<=end).map(x=>x.i);
+      const newHdr = hdr.slice(0,6).concat(cols.map(i=>hdr[i]));
+      const newRows = fullRoster.slice(1).map(r=>r.slice(0,6).concat(cols.map(i=>r[i])));
+      renderTable([newHdr,...newRows]);
     }
 
-    document.getElementById("preset").addEventListener("change", function(){
-      const today = new Date(), opt=this.value;
-      let start, end;
-      if (opt==='week') {
-        const d = today.getDay();
-        start = new Date(today); start.setDate(today.getDate()-d);
-        end = new Date(start); end.setDate(start.getDate()+6);
-      } else if (opt==='month') {
-        start = new Date(today.getFullYear(), today.getMonth(),1);
-        end = new Date(today.getFullYear(), today.getMonth()+1,0);
-      } else if (opt==='next') {
-        start = new Date(today.getFullYear(), today.getMonth()+1,1);
-        end = new Date(today.getFullYear(), today.getMonth()+2,0);
+    document.getElementById('refreshBtn').onclick = loadRosterFile;
+    document.getElementById('preset').onchange = function(){
+      const t=new Date(),opt=this.value; let s,e;
+      if(opt==='week') {
+        const d=t.getDay(); s=new Date(t); s.setDate(t.getDate()-d);
+        e=new Date(s); e.setDate(s.getDate()+6);
+      } else if(opt==='month') {
+        s=new Date(t.getFullYear(),t.getMonth(),1);
+        e=new Date(t.getFullYear(),t.getMonth()+1,0);
+      } else if(opt==='next') {
+        s=new Date(t.getFullYear(),t.getMonth()+1,1);
+        e=new Date(t.getFullYear(),t.getMonth()+2,0);
       } else return;
-      loadRosterForDates(start, end);
-    });
+      loadRosterForDates(s,e);
+    };
 
-    document.getElementById("refreshBtn").addEventListener("click", loadRosterFile);
-
-    // Initial load
+    // Initial
     loadRosterFile();
   </script>
 </body>
