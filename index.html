@@ -1,70 +1,61 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8"/>
   <title>Team Roster Viewer</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-
-  <!-- ============================
-       STYLES
-  ============================ -->
   <style>
-    body { font-family: Arial, sans-serif; background: #e6f0ff; color: #003366; padding: 1rem; }
-    h1  { text-align: center; margin-bottom: .5rem; }
-
-    /* Controls */
-    .controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom:1rem; }
+    body { font-family: Arial,sans-serif; background:#e6f0ff; color:#003366; padding:1rem; }
+    h1 { text-align:center; margin-bottom:.5rem; }
+    .controls { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-bottom:1rem; }
     .controls label, .controls select, .controls input, .controls button {
-      font-size: .9rem; padding: 4px 8px;
+      padding:4px 8px; font-size:.9rem;
     }
-
-    /* Status & table wrapper */
     #status { text-align:center; font-weight:bold; margin-bottom:.5rem; }
-    #table-container { overflow-x: auto; }
+    #table-container { overflow-x:auto; }
+    table { border-collapse:collapse; width:100%; }
+    th, td { border:1px solid #ccc; padding:6px; text-align:center; font-size:.9rem; }
+    th { background:#0059b3; color:#fff; position:sticky; top:0; z-index:2; }
+    input.shift-input { width:100%; border:none; background:transparent; text-align:center; }
 
-    /* Table */
-    table { border-collapse: collapse; width:100%; }
-    th, td {
-      border:1px solid #ccc; padding:6px; text-align:center; font-size:.9rem;
-    }
-    th {
-      background: #0059b3; color:#fff;
-      position: sticky; top:0; z-index:2;
-    }
-    input.shift-input {
-      width:100%; border:none; background:transparent; text-align:center;
-    }
+    .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-bottom:1rem; }
+    .legend-item { padding:4px 8px; font-size:.8rem; border:1px solid #888; border-radius:4px; }
 
-    /* Legend */
-    .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-top:1rem; }
-    .legend-item {
-      padding:4px 8px; font-size:.8rem; border:1px solid #888; border-radius:4px;
-    }
-
-    /* Shift colours & times */
-    .shift-6    { background:#d6f5d6 }  /* Day 06:00–16:00 */
-    .shift-15   { background:#cce5ff }  /* Afternoon 15:00–01:00 */
-    .shift-16   { background:#99ccff }  /* Late 16:00–02:00 */
-    .shift-17   { background:#e0ccff }  /* Evening 17:00–03:00 */
-    .shift-18   { background:#f2f2f2 }  /* Night 21:00–07:00 */
-    .shift-X    { background:#ffcccb }  /* Day Off */
-    .shift-AL   { background:#fff7a0 }  /* Annual Leave */
-    .shift-CT   { background:#ffc966 }  /* Court */
-    .shift-T    { background:#d9b3ff }  /* Training */
-    .shift-RDO  { background:#ffd6d6 }  /* RDO */
-    .shift-LSL  { background:#c2f0c2 }  /* Long Service */
-    .shift-RS   { background:#b3e6ff }  /* Regional Shield */
+    .shift-6    { background:#d6f5d6 } /* Day 06:00–16:00 */
+    .shift-15   { background:#cce5ff } /* Afternoon 15:00–01:00 */
+    .shift-16   { background:#99ccff } /* Late 16:00–02:00 */
+    .shift-17   { background:#e0ccff } /* Evening 17:00–03:00 */
+    .shift-18   { background:#f2f2f2 } /* Night 21:00–07:00 */
+    .shift-X    { background:#ffcccb } /* Day Off */
+    .shift-AL   { background:#fff7a0 } /* Annual Leave */
+    .shift-CT   { background:#ffc966 } /* Court */
+    .shift-T    { background:#d9b3ff } /* Training */
+    .shift-RDO  { background:#ffd6d6 } /* RDO */
+    .shift-LSL  { background:#c2f0c2 } /* Long Service */
+    .shift-RS   { background:#b3e6ff } /* Regional Shield */
   </style>
 </head>
 <body>
-
   <h1>Team Roster Viewer</h1>
 
-  <!-- ============================
-       CONTROLS
-  ============================ -->
+  <!-- Legend above -->
+  <div class="legend">
+    <span class="legend-item shift-6">6–Day (06:00–16:00)</span>
+    <span class="legend-item shift-15">15–Afternoon (15:00–01:00)</span>
+    <span class="legend-item shift-16">16–Late (16:00–02:00)</span>
+    <span class="legend-item shift-17">17–Evening (17:00–03:00)</span>
+    <span class="legend-item shift-18">18–Night (21:00–07:00)</span>
+    <span class="legend-item shift-X">X–Day Off</span>
+    <span class="legend-item shift-AL">AL–Annual Leave</span>
+    <span class="legend-item shift-CT">CT–Court</span>
+    <span class="legend-item shift-T">T–Training</span>
+    <span class="legend-item shift-RDO">RDO–Rostered Off</span>
+    <span class="legend-item shift-LSL">LSL–Long Service</span>
+    <span class="legend-item shift-RS">RS–Regional Shield</span>
+  </div>
+
+  <!-- Controls -->
   <div class="controls">
-    <!-- Presets -->
     <label for="preset">View:</label>
     <select id="preset">
       <option value="">-- Select --</option>
@@ -73,261 +64,165 @@
       <option value="next">Next Month</option>
     </select>
 
-    <!-- Manual dates -->
     <label for="start-date">Start:</label>
     <input type="date" id="start-date"/>
+
     <label for="end-date">End:</label>
     <input type="date" id="end-date"/>
 
-    <!-- Team filter -->
     <label for="team-filter">Team:</label>
-    <select id="team-filter">
-      <option value="">All Teams</option>
-    </select>
+    <select id="team-filter"><option value="">All Teams</option></select>
 
-    <!-- Emp No filter -->
     <label for="id-filter">Emp No.:</label>
     <input type="text" id="id-filter" placeholder="e.g. 204140"/>
 
-    <!-- Reload button -->
-    <button id="refreshBtn">Reload Roster File</button>
+    <button id="refreshBtn">Reload Files</button>
   </div>
 
   <div id="status">Initializing…</div>
   <div id="table-container"></div>
 
-  <!-- ============================
-       LEGEND
-  ============================ -->
-  <div class="legend">
-    <span class="legend-item shift-6">6 – Day (06:00–16:00)</span>
-    <span class="legend-item shift-15">15 – Afternoon (15:00–01:00)</span>
-    <span class="legend-item shift-16">16 – Late (16:00–02:00)</span>
-    <span class="legend-item shift-17">17 – Evening (17:00–03:00)</span>
-    <span class="legend-item shift-18">18 – Night (21:00–07:00)</span>
-    <span class="legend-item shift-X">X – Day Off</span>
-    <span class="legend-item shift-AL">AL – Annual Leave</span>
-    <span class="legend-item shift-CT">CT – Court</span>
-    <span class="legend-item shift-T">T – Training</span>
-    <span class="legend-item shift-RDO">RDO – Rostered Day Off</span>
-    <span class="legend-item shift-LSL">LSL – Long Service</span>
-    <span class="legend-item shift-RS">RS – Regional Shield</span>
-  </div>
-
-  <!-- ============================
-       SCRIPT: SheetJS & Logic
-  ============================ -->
+  <!-- SheetJS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
-    // ─────────────────────────────────────────
-    // GLOBALS
-    // ─────────────────────────────────────────
-    let fullRoster = [];               // 2D array from Excel
-    let canEdit    = false;            // becomes true if correct password
-    const cycle    = ['6','15','16','17','18'];
-    const refMonday= new Date(2025,5,30);// Mon 30 Jun 2025 = week 1 start
+    let fullRoster = [], overrides = [];
+    let canEdit = false;
+    const cycle = ['6','15','16','17','18'];
+    const refMon = new Date(2025,5,30);
 
-    // ─────────────────────────────────────────
-    // ON LOAD: Password gate, then fetch & render
-    // ─────────────────────────────────────────
-    window.addEventListener('load', () => {
-      const pwd = prompt("Enter edit password:");
-      canEdit = (pwd === 'password');
-      document.getElementById('status').innerText =
-        canEdit ? "Edit mode enabled" : "Read-only mode";
-      loadAndPopulate();
+    window.addEventListener('load', ()=>{
+      canEdit = (prompt("Enter password:")==='password');
+      document.getElementById('status').innerText = canEdit?"Edit mode":"Read-only";
+      Promise.all([
+        fetch('roster_template_final.xlsx?cb='+Date.now()).then(r=>r.arrayBuffer()),
+        fetch('overrides.xlsx?cb='+Date.now()).then(r=>r.arrayBuffer())
+      ]).then(([rb,ob])=>{
+        const wbR = XLSX.read(rb,{type:'array'}),
+              wbO = XLSX.read(ob,{type:'array'});
+        fullRoster = XLSX.utils.sheet_to_json(wbR.Sheets[wbR.SheetNames[0]],{header:1});
+        overrides  = XLSX.utils.sheet_to_json(wbO.Sheets[wbO.SheetNames[0]],{header:1});
+        populateTeams(); applyFilters();
+      }).catch(e=>{
+        console.error(e);
+        document.getElementById('status').innerText="Load error";
+      });
     });
 
-    // ─────────────────────────────────────────
-    // FETCH EXCEL → parse → populate teams → apply filters
-    // ─────────────────────────────────────────
-    function loadAndPopulate() {
-      document.getElementById('status').innerText =
-        canEdit ? "Loading (edit)…" : "Loading…";
-      fetch('roster_template_final.xlsx?cacheBust='+Date.now())
-        .then(res => {
-          if(!res.ok) throw new Error('Fetch failed: '+res.status);
-          return res.arrayBuffer();
-        })
-        .then(buf => {
-          const wb = XLSX.read(buf, { type:'array' });
-          fullRoster = XLSX.utils.sheet_to_json(
-            wb.Sheets[wb.SheetNames[0]], { header:1 }
-          );
-          populateTeams();
-          applyFilters();
-          document.getElementById('status').innerText =
-            canEdit ? "Loaded (edit)" : "Loaded";
-        })
-        .catch(err => {
-          document.getElementById('status').innerText = "❌ Load error";
-          document.getElementById('table-container').innerText = err.message;
-          console.error(err);
-        });
+    function populateTeams(){
+      const hdr=fullRoster[0],ti=hdr.indexOf('Team');
+      if(ti<0)return;
+      const sel=document.getElementById('team-filter');
+      [...new Set(fullRoster.slice(1).map(r=>r[ti]))]
+        .forEach(t=>sel.innerHTML+=`<option>${t}</option>`);
     }
 
-    // ─────────────────────────────────────────
-    // POPULATE "Team" FILTER DROPDOWN
-    // ─────────────────────────────────────────
-    function populateTeams() {
-      const hdr = fullRoster[0];
-      const ti  = hdr.indexOf('Team');
-      if (ti < 0) return;
-      const teams = [...new Set(fullRoster.slice(1).map(r=>r[ti]))];
-      const sel   = document.getElementById('team-filter');
-      sel.innerHTML = '<option value="">All Teams</option>';
-      teams.forEach(t=> {
-        if(t!=='') sel.innerHTML += `<option value="${t}">Team ${t}</option>`;
-      });
-    }
-
-    // ─────────────────────────────────────────
-    // APPLY FILTERS & PREDICTION
-    // ─────────────────────────────────────────
-    function applyFilters() {
-      if (!fullRoster.length) return;
-      const hdr  = fullRoster[0], body = fullRoster.slice(1);
-      // 1) Read controls
-      const preset = document.getElementById('preset').value;
-      const sVal   = document.getElementById('start-date').value;
-      const eVal   = document.getElementById('end-date').value;
-      const teamVal= document.getElementById('team-filter').value;
-      const idVal  = document.getElementById('id-filter').value.trim();
-      const now    = new Date();
-      let start, end;
-
-      // 2) Determine start/end from preset or manual
-      if (preset==='week') {
-        const d = now.getDay();
-        start = new Date(now); start.setDate(now.getDate()-d);
-        end   = new Date(start); end.setDate(start.getDate()+6);
-      } else if (preset==='month') {
-        start = new Date(now.getFullYear(),now.getMonth(),1);
-        end   = new Date(now.getFullYear(),now.getMonth()+1,0);
-      } else if (preset==='next') {
-        start = new Date(now.getFullYear(),now.getMonth()+1,1);
-        end   = new Date(now.getFullYear(),now.getMonth()+2,0);
-      } else if (sVal && eVal) {
-        start = new Date(sVal);
-        end   = new Date(eVal);
+    function applyFilters(){
+      if(!fullRoster.length) return;
+      const hdr=fullRoster[0], body=fullRoster.slice(1);
+      const preset=document.getElementById('preset').value,
+            sVal=document.getElementById('start-date').value,
+            eVal=document.getElementById('end-date').value,
+            teamV=document.getElementById('team-filter').value,
+            idV=document.getElementById('id-filter').value.trim(),
+            now=new Date();
+      let start,end;
+      if(preset==='week'){
+        start=new Date(now); start.setDate(now.getDate()-now.getDay());
+        end=new Date(start); end.setDate(start.getDate()+6);
+      } else if(preset==='month'){
+        start=new Date(now.getFullYear(),now.getMonth(),1);
+        end=new Date(now.getFullYear(),now.getMonth()+1,0);
+      } else if(preset==='next'){
+        start=new Date(now.getFullYear(),now.getMonth()+1,1);
+        end=new Date(now.getFullYear(),now.getMonth()+2,0);
+      } else if(sVal&&eVal){
+        start=new Date(sVal); end=new Date(eVal);
       }
-
-      // 3) Build full date array
-      const allDates = [];
-      if (start && end && start <= end) {
-        for(let d=new Date(start); d<=end; d.setDate(d.getDate()+1)){
+      const allDates=[];
+      if(start&&end&&start<=end){
+        for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1))
           allDates.push(new Date(d));
-        }
       }
-
-      // 4) Locate Excel date columns
-      const excelCols = hdr.map((h,i)=>{
-        const m = h.match(/(\d{2})\/(\d{2})/);
-        if(m) return { idx:i, date:new Date(now.getFullYear(),+m[2]-1,+m[1]) };
+      const excelCols=hdr.map((h,i)=>{
+        const m=h.match(/(\d{2})\/(\d{2})/);
+        return m?{idx:i,date:new Date(now.getFullYear(),+m[2]-1,+m[1])}:null;
       }).filter(x=>x);
-
-      // 5) Create spanCols: for each date, excel or predict
-      const spanCols = allDates.map(d=>{
-        const ex = excelCols.find(c=>
-          c.date.getDate()===d.getDate() &&
-          c.date.getMonth()===d.getMonth()
-        );
-        return ex
-          ? { type:'excel', idx:ex.idx, date:d }
-          : { type:'predict', date:d };
+      const spanCols=allDates.map(d=>{
+        const ex=excelCols.find(c=>c.date.getDate()===d.getDate()&&c.date.getMonth()===d.getMonth());
+        return ex?{type:'excel',idx:ex.idx,date:d}:{type:'pred',date:d};
       });
-
-      // 6) Filter body by Team & Emp No.
-      let rows = body;
-      const ti = hdr.indexOf('Team');
-      if (teamVal && ti>=0) {
-        rows = rows.filter(r=>r[ti].toString()===teamVal);
-      }
-      if (idVal) {
-        rows = rows.filter(r=>r[1].toString().includes(idVal));
-      }
-
-      // 7) Build new headers
-      // Static end = first date column index
-      const dateRe    = /\d{2}\/\d{2}/;
-      const staticEnd = hdr.findIndex(h=>dateRe.test(h));
-      const staticHdr = hdr.slice(0, staticEnd);
-      const dateHdrs  = spanCols.map(c=>{
-        const dd = String(c.date.getDate()).padStart(2,'0');
-        const mm = String(c.date.getMonth()+1).padStart(2,'0');
-        const wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][c.date.getDay()];
+      let rows=body;
+      const ti=hdr.indexOf('Team');
+      if(teamV&&ti>=0) rows=rows.filter(r=>r[ti].toString()===teamV);
+      if(idV) rows=rows.filter(r=>r[1].toString().includes(idV));
+      const ovMap={};
+      overrides.slice(1).forEach(r=>{
+        const key=r[0]+'|'+(new Date(r[1])).toISOString().slice(0,10);
+        ovMap[key]=r[2];
+      });
+      // build qualifications columns
+      const qIdx=hdr.indexOf('QUALIFICATIONS');
+      const qualSet=new Set();
+      rows.forEach(r=>{
+        (r[qIdx]||'').split(',').map(x=>x.trim()).filter(x=>x)
+          .forEach(x=>qualSet.add(x));
+      });
+      const qualList=Array.from(qualSet);
+      const staticHdr=['Name','Emp No.','Team',...qualList];
+      const dateHdrs=spanCols.map(c=>{
+        const wd=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][c.date.getDay()];
+        const dd=('0'+c.date.getDate()).slice(-2);
+        const mm=('0'+(c.date.getMonth()+1)).slice(-2);
         return `${wd}, ${dd}/${mm}`;
       });
-      const newHdr = staticHdr.concat(dateHdrs);
-
-      // 8) Build new rows
-      const newRows = rows.map((r,rowIdx)=>{
-        const base = r.slice(0, staticEnd);
-        const tail = spanCols.map(c=>{
-          if (c.type==='excel') return r[c.idx];
-          // Weekly rotation prediction
-          const diffDays = Math.floor((c.date - refMonday)/(1000*60*60*24));
-          const weekNum  = Math.floor(diffDays/7);
-          const teamIdx  = rowIdx % cycle.length;
-          let idx       = (weekNum + teamIdx) % cycle.length;
-          if(idx<0) idx += cycle.length;
+      const newHdr=staticHdr.concat(dateHdrs);
+      const newRows=rows.map((r,ri)=>{
+        const name=r[0]||'', emp=r[1]||'', team=r[ti]||'';
+        const qvals=qualList.map(code=>(r[qIdx]||'').includes(code)?'✓':'');
+        const shifts=spanCols.map(c=>{
+          const key=emp+'|'+c.date.toISOString().slice(0,10);
+          if(ovMap[key]) return ovMap[key];
+          if(c.type==='excel'&&r[c.idx]) return r[c.idx];
+          const diffDays=Math.floor((c.date-refMon)/(1000*60*60*24));
+          const wnum=Math.floor(diffDays/7);
+          const tIdx=(Number(team)-1)%cycle.length;
+          let idx=(wnum+tIdx)%cycle.length;
+          if(idx<0) idx+=cycle.length;
           return cycle[idx];
         });
-        return base.concat(tail);
+        return [name,emp,team,...qvals,...shifts];
       });
-
-      renderTable([newHdr, ...newRows]);
+      renderTable([newHdr,...newRows]);
     }
 
-    // ─────────────────────────────────────────
-    // RENDER TABLE 2D → HTML
-    // ─────────────────────────────────────────
-    function renderTable(data) {
-      const c = document.getElementById('table-container');
-      // Determine staticEnd again
-      const dateRe    = /\d{2}\/\d{2}/;
-      const staticEnd = data[0].findIndex(h=>dateRe.test(h));
-      let html = '<table><thead><tr>';
-      data[0].forEach(h=> html += `<th>${h}</th>`);
-      html += '</tr></thead><tbody>';
-      data.slice(1).forEach((row, rIdx)=>{
-        html += '<tr>';
-        data[0].forEach((h, cIdx)=>{
-          const cell = row[cIdx]||'';
-          // Training columns as checkboxes
-          if (/^Training\d+$/.test(h)) {
-            const chk = cell ? 'checked' : '';
-            html += `<td class="${cell?'shift-T':''}">
-                       <input type="checkbox" ${chk} ${canEdit?'':'disabled'}
-                         onchange="this.parentElement.className=this.checked?'shift-T':''" />
-                     </td>`;
-          }
-          // Static columns
-          else if (cIdx < staticEnd) {
-            html += `<td>${cell}</td>`;
-          }
-          // Shift columns
-          else {
-            html += `<td class="shift-${cell.toString().toUpperCase()}">
-                       <input class="shift-input" value="${cell}"
-                         ${canEdit?'':'disabled'}
-                         oninput="this.parentElement.className='shift-'+this.value.toUpperCase()" />
-                     </td>`;
+    function renderTable(data){
+      const c=document.getElementById('table-container');
+      let html='<table><thead><tr>';
+      data[0].forEach(h=>html+=`<th>${h}</th>`);
+      html+='</tr></thead><tbody>';
+      data.slice(1).forEach(row=>{
+        html+='<tr>';
+        row.forEach((cell,i)=>{
+          const isDateCol=i>=data[0].findIndex(h=>/\d{2}\/\d{2}/.test(h));
+          if(!isDateCol){
+            html+=`<td>${cell}</td>`;
+          } else {
+            const cls='shift-'+String(cell||'').toUpperCase();
+            html+=`<td class="${cls}">
+                     <input class="shift-input" value="${cell||''}" ${canEdit?'':'disabled'}
+                       oninput="this.parentElement.className='shift-'+this.value.toUpperCase()"/>
+                   </td>`;
           }
         });
-        html += '</tr>';
+        html+='</tr>';
       });
-      html += '</tbody></table>';
-      c.innerHTML = html;
+      html+='</tbody></table>';
+      c.innerHTML=html;
     }
 
-    // ─────────────────────────────────────────
-    // HOOKS
-    // ─────────────────────────────────────────
-    document.getElementById('refreshBtn').onclick = loadAndPopulate;
+    document.getElementById('refreshBtn').onclick=loadAndPopulate;
     ['preset','start-date','end-date','team-filter','id-filter']
-      .forEach(id=>document.getElementById(id).onchange = applyFilters);
-
+      .forEach(id=>document.getElementById(id).onchange=applyFilters);
   </script>
 </body>
 </html>
