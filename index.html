@@ -14,10 +14,6 @@
     h1 {
       margin-bottom: 1rem;
     }
-    input[type="file"] {
-      margin: 1rem auto;
-      padding: 0.5rem;
-    }
     table {
       margin: 2rem auto;
       border-collapse: collapse;
@@ -38,25 +34,22 @@
 </head>
 <body>
   <h1>Team Roster Viewer</h1>
-  <input type="file" id="excelFile" accept=".xlsx, .xls" />
-  <div id="table-container"></div>
+  <p><em>Auto-loading roster file from repository...</em></p>
+  <div id="table-container">Loading...</div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
     function excelDateToJSDate(serial) {
       const excelEpoch = new Date(1899, 11, 30);
       const result = new Date(excelEpoch.getTime() + serial * 86400000);
-      return result.toISOString().split('T')[0]; // format as YYYY-MM-DD
+      return result.toISOString().split('T')[0];
     }
 
-    document.getElementById("excelFile").addEventListener("change", function (e) {
-      const reader = new FileReader();
-      reader.readAsBinaryString(e.target.files[0]);
-      reader.onload = function (e) {
-        const data = e.target.result;
-        const workbook = XLSX.read(data, { type: "binary" });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
+    fetch('team_5week_roster.xlsx')
+      .then(res => res.arrayBuffer())
+      .then(data => {
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
         const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
         let tableHtml = '<table><thead><tr>';
@@ -75,8 +68,11 @@
         tableHtml += '</tbody></table>';
 
         document.getElementById("table-container").innerHTML = tableHtml;
-      };
-    });
+      })
+      .catch(err => {
+        document.getElementById("table-container").innerText = "Failed to load roster file.";
+        console.error("Error loading roster:", err);
+      });
   </script>
 </body>
 </html>
