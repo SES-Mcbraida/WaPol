@@ -1,228 +1,178 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
+  <meta charset="UTF-8" />
   <title>Team Roster Viewer</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    body { font-family: Arial,sans-serif; background:#e6f0ff; color:#003366; padding:1rem; }
-    h1 { text-align:center; margin-bottom:.5rem; }
-    .controls { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-bottom:1rem; }
-    .controls label, .controls select, .controls input, .controls button {
-      padding:4px 8px; font-size:.9rem;
+    body {
+      font-family: Arial, sans-serif;
+      background: #e7effa;
+      margin: 20px;
+      color: #333;
     }
-    #status { text-align:center; font-weight:bold; margin-bottom:.5rem; }
-    #table-container { overflow-x:auto; }
-    table { border-collapse:collapse; width:100%; }
-    th, td { border:1px solid #ccc; padding:6px; text-align:center; font-size:.9rem; }
-    th { background:#0059b3; color:#fff; position:sticky; top:0; z-index:2; }
-    input.shift-input { width:100%; border:none; background:transparent; text-align:center; }
-
-    .legend { display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-bottom:1rem; }
-    .legend-item { padding:4px 8px; font-size:.8rem; border:1px solid #888; border-radius:4px; }
-
-    .shift-6    { background:#d6f5d6 } /* Day 06:00–16:00 */
-    .shift-15   { background:#cce5ff } /* Afternoon 15:00–01:00 */
-    .shift-16   { background:#99ccff } /* Late 16:00–02:00 */
-    .shift-17   { background:#e0ccff } /* Evening 17:00–03:00 */
-    .shift-18   { background:#f2f2f2 } /* Night 21:00–07:00 */
-    .shift-X    { background:#ffcccb } /* Day Off */
-    .shift-AL   { background:#fff7a0 } /* Annual Leave */
-    .shift-CT   { background:#ffc966 } /* Court */
-    .shift-T    { background:#d9b3ff } /* Training */
-    .shift-RDO  { background:#ffd6d6 } /* RDO */
-    .shift-LSL  { background:#c2f0c2 } /* Long Service */
-    .shift-RS   { background:#b3e6ff } /* Regional Shield */
+    h1 { text-align: center; }
+    .filters, .legend {
+      margin: 10px auto;
+      max-width: 1400px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .filters input, .filters select, .filters button {
+      padding: 5px;
+      font-size: 14px;
+    }
+    table {
+      width: 95%;
+      margin: 20px auto;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #aaa;
+      padding: 5px;
+      text-align: center;
+      font-size: 13px;
+    }
+    th {
+      background: #003366;
+      color: #fff;
+    }
+    .legend button {
+      border: 1px solid #ccc;
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+    }
+    .s-6 { background: #c0ffc0; }         /* Day */
+    .s-15 { background: #b3d9ff; }        /* Afternoon */
+    .s-16 { background: #add8e6; }        /* Late */
+    .s-17 { background: #e3b3ff; }        /* Evening */
+    .s-18 { background: #d3d3ff; }        /* Night */
+    .s-X { background: #f5f5f5; }         /* Day Off */
+    .s-AL { background: #ffff99; }        /* Annual Leave */
+    .s-CT { background: #ffcc66; }        /* Court */
+    .s-T { background: #dda0dd; }         /* Training */
+    .s-RS { background: #99ccff; }        /* Regional Shield */
+    .s-RDO { background: #ffcccc; }       /* Rostered Off */
+    .s-LSL { background: #ccffcc; }       /* Long Service Leave */
   </style>
 </head>
 <body>
   <h1>Team Roster Viewer</h1>
-
-  <!-- Legend above -->
+  
   <div class="legend">
-    <span class="legend-item shift-6">6–Day (06:00–16:00)</span>
-    <span class="legend-item shift-15">15–Afternoon (15:00–01:00)</span>
-    <span class="legend-item shift-16">16–Late (16:00–02:00)</span>
-    <span class="legend-item shift-17">17–Evening (17:00–03:00)</span>
-    <span class="legend-item shift-18">18–Night (21:00–07:00)</span>
-    <span class="legend-item shift-X">X–Day Off</span>
-    <span class="legend-item shift-AL">AL–Annual Leave</span>
-    <span class="legend-item shift-CT">CT–Court</span>
-    <span class="legend-item shift-T">T–Training</span>
-    <span class="legend-item shift-RDO">RDO–Rostered Off</span>
-    <span class="legend-item shift-LSL">LSL–Long Service</span>
-    <span class="legend-item shift-RS">RS–Regional Shield</span>
+    <button class="s-6">6—Day (06:00–16:00)</button>
+    <button class="s-15">15—Afternoon (15:00–01:00)</button>
+    <button class="s-16">16—Late (16:00–02:00)</button>
+    <button class="s-17">17—Evening (17:00–03:00)</button>
+    <button class="s-18">18—Night (21:00–07:00)</button>
+    <button class="s-X">X—Day Off</button>
+    <button class="s-AL">AL—Annual Leave</button>
+    <button class="s-CT">CT—Court</button>
+    <button class="s-T">T—Training</button>
+    <button class="s-RDO">RDO—Rostered Off</button>
+    <button class="s-LSL">LSL—Long Service</button>
+    <button class="s-RS">RS—Regional Shield</button>
   </div>
 
-  <!-- Controls -->
-  <div class="controls">
-    <label for="preset">View:</label>
-    <select id="preset">
-      <option value="">-- Select --</option>
-      <option value="week">Current Week</option>
-      <option value="month">Current Month</option>
-      <option value="next">Next Month</option>
+  <div class="filters">
+    <label for="team">Team:</label>
+    <select id="team">
+      <option value="All">All Teams</option>
+      <option value="1">Team 1</option>
+      <option value="2">Team 2</option>
+      <option value="3">Team 3</option>
+      <option value="4">Team 4</option>
+      <option value="5">Team 5</option>
     </select>
 
-    <label for="start-date">Start:</label>
-    <input type="date" id="start-date"/>
+    <label for="empSearch">Emp No.:</label>
+    <input type="text" id="empSearch" placeholder="e.g. 204140">
 
-    <label for="end-date">End:</label>
-    <input type="date" id="end-date"/>
+    <label for="startDate">Start:</label>
+    <input type="date" id="startDate">
 
-    <label for="team-filter">Team:</label>
-    <select id="team-filter"><option value="">All Teams</option></select>
+    <label for="endDate">End:</label>
+    <input type="date" id="endDate">
 
-    <label for="id-filter">Emp No.:</label>
-    <input type="text" id="id-filter" placeholder="e.g. 204140"/>
-
-    <button id="refreshBtn">Reload Files</button>
+    <button onclick="loadRoster()">Reload Files</button>
   </div>
 
-  <div id="status">Initializing…</div>
-  <div id="table-container"></div>
+  <table id="rosterTable">
+    <thead id="tableHead"></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
 
-  <!-- SheetJS -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script>
-    let fullRoster = [], overrides = [];
-    let canEdit = false;
-    const cycle = ['6','15','16','17','18'];
-    const refMon = new Date(2025,5,30);
+    let rosterData = [], overrideData = [];
 
-    window.addEventListener('load', ()=>{
-      canEdit = (prompt("Enter password:")==='password');
-      document.getElementById('status').innerText = canEdit?"Edit mode":"Read-only";
+    function loadRoster() {
       Promise.all([
-        fetch('roster_template_final.xlsx?cb='+Date.now()).then(r=>r.arrayBuffer()),
-        fetch('overrides.xlsx?cb='+Date.now()).then(r=>r.arrayBuffer())
-      ]).then(([rb,ob])=>{
-        const wbR = XLSX.read(rb,{type:'array'}),
-              wbO = XLSX.read(ob,{type:'array'});
-        fullRoster = XLSX.utils.sheet_to_json(wbR.Sheets[wbR.SheetNames[0]],{header:1});
-        overrides  = XLSX.utils.sheet_to_json(wbO.Sheets[wbO.SheetNames[0]],{header:1});
-        populateTeams(); applyFilters();
-      }).catch(e=>{
-        console.error(e);
-        document.getElementById('status').innerText="Load error";
+        fetch("roster_template_final.xlsx").then(r => r.blob()),
+        fetch("overrides.xlsx").then(r => r.blob())
+      ]).then(async ([rosterBlob, overrideBlob]) => {
+        const [roster, overrides] = await Promise.all([
+          readExcel(rosterBlob),
+          readExcel(overrideBlob)
+        ]);
+        rosterData = roster;
+        overrideData = overrides;
+        renderTable();
       });
-    });
-
-    function populateTeams(){
-      const hdr=fullRoster[0],ti=hdr.indexOf('Team');
-      if(ti<0)return;
-      const sel=document.getElementById('team-filter');
-      [...new Set(fullRoster.slice(1).map(r=>r[ti]))]
-        .forEach(t=>sel.innerHTML+=`<option>${t}</option>`);
     }
 
-    function applyFilters(){
-      if(!fullRoster.length) return;
-      const hdr=fullRoster[0], body=fullRoster.slice(1);
-      const preset=document.getElementById('preset').value,
-            sVal=document.getElementById('start-date').value,
-            eVal=document.getElementById('end-date').value,
-            teamV=document.getElementById('team-filter').value,
-            idV=document.getElementById('id-filter').value.trim(),
-            now=new Date();
-      let start,end;
-      if(preset==='week'){
-        start=new Date(now); start.setDate(now.getDate()-now.getDay());
-        end=new Date(start); end.setDate(start.getDate()+6);
-      } else if(preset==='month'){
-        start=new Date(now.getFullYear(),now.getMonth(),1);
-        end=new Date(now.getFullYear(),now.getMonth()+1,0);
-      } else if(preset==='next'){
-        start=new Date(now.getFullYear(),now.getMonth()+1,1);
-        end=new Date(now.getFullYear(),now.getMonth()+2,0);
-      } else if(sVal&&eVal){
-        start=new Date(sVal); end=new Date(eVal);
-      }
-      const allDates=[];
-      if(start&&end&&start<=end){
-        for(let d=new Date(start);d<=end;d.setDate(d.getDate()+1))
-          allDates.push(new Date(d));
-      }
-      const excelCols=hdr.map((h,i)=>{
-        const m=h.match(/(\d{2})\/(\d{2})/);
-        return m?{idx:i,date:new Date(now.getFullYear(),+m[2]-1,+m[1])}:null;
-      }).filter(x=>x);
-      const spanCols=allDates.map(d=>{
-        const ex=excelCols.find(c=>c.date.getDate()===d.getDate()&&c.date.getMonth()===d.getMonth());
-        return ex?{type:'excel',idx:ex.idx,date:d}:{type:'pred',date:d};
+    function readExcel(blob) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const workbook = XLSX.read(e.target.result, {type: 'binary'});
+          const sheetName = workbook.SheetNames[0];
+          const data = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
+          resolve(data);
+        };
+        reader.readAsBinaryString(blob);
       });
-      let rows=body;
-      const ti=hdr.indexOf('Team');
-      if(teamV&&ti>=0) rows=rows.filter(r=>r[ti].toString()===teamV);
-      if(idV) rows=rows.filter(r=>r[1].toString().includes(idV));
-      const ovMap={};
-      overrides.slice(1).forEach(r=>{
-        const key=r[0]+'|'+(new Date(r[1])).toISOString().slice(0,10);
-        ovMap[key]=r[2];
-      });
-      // build qualifications columns
-      const qIdx=hdr.indexOf('QUALIFICATIONS');
-      const qualSet=new Set();
-      rows.forEach(r=>{
-        (r[qIdx]||'').split(',').map(x=>x.trim()).filter(x=>x)
-          .forEach(x=>qualSet.add(x));
-      });
-      const qualList=Array.from(qualSet);
-      const staticHdr=['Name','Emp No.','Team',...qualList];
-      const dateHdrs=spanCols.map(c=>{
-        const wd=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][c.date.getDay()];
-        const dd=('0'+c.date.getDate()).slice(-2);
-        const mm=('0'+(c.date.getMonth()+1)).slice(-2);
-        return `${wd}, ${dd}/${mm}`;
-      });
-      const newHdr=staticHdr.concat(dateHdrs);
-      const newRows=rows.map((r,ri)=>{
-        const name=r[0]||'', emp=r[1]||'', team=r[ti]||'';
-        const qvals=qualList.map(code=>(r[qIdx]||'').includes(code)?'✓':'');
-        const shifts=spanCols.map(c=>{
-          const key=emp+'|'+c.date.toISOString().slice(0,10);
-          if(ovMap[key]) return ovMap[key];
-          if(c.type==='excel'&&r[c.idx]) return r[c.idx];
-          const diffDays=Math.floor((c.date-refMon)/(1000*60*60*24));
-          const wnum=Math.floor(diffDays/7);
-          const tIdx=(Number(team)-1)%cycle.length;
-          let idx=(wnum+tIdx)%cycle.length;
-          if(idx<0) idx+=cycle.length;
-          return cycle[idx];
-        });
-        return [name,emp,team,...qvals,...shifts];
-      });
-      renderTable([newHdr,...newRows]);
     }
 
-    function renderTable(data){
-      const c=document.getElementById('table-container');
-      let html='<table><thead><tr>';
-      data[0].forEach(h=>html+=`<th>${h}</th>`);
-      html+='</tr></thead><tbody>';
-      data.slice(1).forEach(row=>{
-        html+='<tr>';
-        row.forEach((cell,i)=>{
-          const isDateCol=i>=data[0].findIndex(h=>/\d{2}\/\d{2}/.test(h));
-          if(!isDateCol){
-            html+=`<td>${cell}</td>`;
-          } else {
-            const cls='shift-'+String(cell||'').toUpperCase();
-            html+=`<td class="${cls}">
-                     <input class="shift-input" value="${cell||''}" ${canEdit?'':'disabled'}
-                       oninput="this.parentElement.className='shift-'+this.value.toUpperCase()"/>
-                   </td>`;
+    function renderTable() {
+      const team = document.getElementById('team').value;
+      const empSearch = document.getElementById('empSearch').value.trim();
+      const start = new Date(document.getElementById('startDate').value);
+      const end = new Date(document.getElementById('endDate').value);
+
+      const dates = Object.keys(rosterData[0] || {}).filter(k => /^\d{2}\/\d{2}$/.test(k));
+      const filteredDates = dates.filter(d => {
+        const fullDate = new Date(`2025/${d.split("/").reverse().join("/")}`);
+        return (!isNaN(start) ? fullDate >= start : true) &&
+               (!isNaN(end) ? fullDate <= end : true);
+      });
+
+      const headRow = ["Name", "Emp No.", "Team", ...filteredDates.map(d => d)];
+      const headHTML = `<tr>${headRow.map(h => `<th>${h}</th>`).join("")}</tr>`;
+      document.getElementById("tableHead").innerHTML = headHTML;
+
+      const body = rosterData
+        .filter(r => (team === "All" || r["Team"] == team))
+        .filter(r => (empSearch ? r["Emp No."].toString().includes(empSearch) : true))
+        .map(r => {
+          const row = [`<td>${r["Name"]}</td>`, `<td>${r["Emp No."]}</td>`, `<td>${r["Team"]}</td>`];
+          for (const d of filteredDates) {
+            const dateISO = `2025-${d.split("/").reverse().join("-")}`;
+            const override = overrideData.find(o => o["Emp No."] == r["Emp No."] && o["Date"] === dateISO);
+            const value = override ? override["Override Code"] : r[d];
+            const cls = `s-${value}`;
+            row.push(`<td class="${cls}">${value}</td>`);
           }
+          return `<tr>${row.join("")}</tr>`;
         });
-        html+='</tr>';
-      });
-      html+='</tbody></table>';
-      c.innerHTML=html;
+
+      document.getElementById("tableBody").innerHTML = body.join("");
     }
 
-    document.getElementById('refreshBtn').onclick=loadAndPopulate;
-    ['preset','start-date','end-date','team-filter','id-filter']
-      .forEach(id=>document.getElementById(id).onchange=applyFilters);
+    // Auto-load on startup
+    loadRoster();
   </script>
 </body>
 </html>
