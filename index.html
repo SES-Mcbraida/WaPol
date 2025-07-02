@@ -2,38 +2,38 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>ROG Roster Viewer</title>
+  <title>ROG Roster</title>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <!-- SheetJS for Excel/CSV parsing -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    body { font-family: Arial,sans-serif; background:#e7effa; color:#333; padding:1rem }
-    h1 { text-align:center; margin-bottom:1rem }
-    .legend, .controls { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-bottom:1rem }
+    body { font-family: Arial, sans-serif; background: #e7effa; color: #333; padding: 1rem }
+    h1 { text-align: center; margin-bottom: 1rem }
+    .legend, .controls { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-bottom: 1rem }
     .legend-item, .controls select, .controls input, .controls button {
-      padding:4px 8px; font-size:.85rem; border-radius:4px; border:1px solid #888;
+      padding: 4px 8px; font-size: .85rem; border-radius: 4px; border: 1px solid #888;
     }
-    table { width:100%; border-collapse:collapse; margin-top:1rem }
-    th, td { border:1px solid #aaa; padding:6px; text-align:center; font-size:.85rem }
-    th { background:#003366; color:#fff; position:sticky; top:0; z-index:1 }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem }
+    th, td { border: 1px solid #aaa; padding: 6px; text-align: center; font-size: .85rem }
+    th { background: #003366; color: #fff; position: sticky; top: 0; z-index: 1 }
     /* shift colours */
-    .shift-6   { background:#c0ffc0 }
-    .shift-15  { background:#b3d9ff }
-    .shift-16  { background:#add8e6 }
-    .shift-17  { background:#e3b3ff }
-    .shift-18  { background:#d3d3ff }
-    .shift-X   { background:#f5f5f5 }
-    .shift-AL  { background:#ffff99 }
-    .shift-CT  { background:#ffcc66 }
-    .shift-T   { background:#dda0dd }
-    .shift-RDO { background:#ffcccc }
-    .shift-LSL { background:#ccffcc }
-    .shift-RS  { background:#99ccff }
-    #status { text-align:center; font-weight:bold; margin-top:.5rem }
+    .shift-6   { background: #c0ffc0 }
+    .shift-15  { background: #b3d9ff }
+    .shift-16  { background: #add8e6 }
+    .shift-17  { background: #e3b3ff }
+    .shift-18  { background: #d3d3ff }
+    .shift-X   { background: #f5f5f5 }
+    .shift-AL  { background: #ffff99 }
+    .shift-CT  { background: #ffcc66 }
+    .shift-T   { background: #dda0dd }
+    .shift-RDO { background: #ffcccc }
+    .shift-LSL { background: #ccffcc }
+    .shift-RS  { background: #99ccff }
+    #status { text-align: center; font-weight: bold; margin-top: .5rem }
   </style>
 </head>
 <body>
-  <h1>ROG Roster Viewer</h1>
+  <h1>ROG Roster</h1>
 
   <!-- Legend -->
   <div class="legend">
@@ -66,10 +66,12 @@
       <input id="endDate" type="date"/>
     </label>
     <button id="reloadBtn">Reload Roster</button>
-    <!-- Upload-only overrides -->
-    <label style="margin-left:1rem;">Upload Overrides:
+
+    <!-- Overrides upload -->
+    <label style="margin-left:1rem;">Overrides File:
       <input id="overrideFile" type="file" accept=".xlsx,.csv"/>
     </label>
+    <button id="loadOverridesBtn">Load Overrides</button>
   </div>
 
   <div id="status"></div>
@@ -82,56 +84,43 @@
 
   <script>
   (async()=>{
+    // 1) Load main roster + pattern from Excel in repo root
+    const buf = await fetch('roster_template_final.xlsx')
+      .then(r=> r.ok ? r.arrayBuffer() : Promise.reject('Failed to load roster'));
+    const wb = XLSX.read(buf, { type:'array' });
+    const roster  = XLSX.utils.sheet_to_json(wb.Sheets['Roster'],       { header:1 });
+    const pattern = XLSX.utils.sheet_to_json(wb.Sheets['RotationPattern'], { header:1 });
 
-    //------------------------
-    // 1) Load only the main roster Excel from repo root
-    //------------------------
-    const buf = await fetch('roster_template_final.xlsx').then(r=>{
-      if(!r.ok) throw new Error('Cannot load roster_template_final.xlsx');
-      return r.arrayBuffer();
-    });
-
-    const wb      = XLSX.read(buf,{type:'array'}),
-          roster  = XLSX.utils.sheet_to_json(wb.Sheets['Roster'],       {header:1}),
-          pattern = XLSX.utils.sheet_to_json(wb.Sheets['RotationPattern'],{header:1});
-
-    //------------------------
-    // 2) Setup empty overrides map
-    //------------------------
+    // 2) Setup empty override map
     let ovMap = {};
 
-    // helper to rebuild map from 2D array
+    // build override map helper
     function buildOvMap(data){
       const m = {};
       data.slice(1).forEach(r=>{
-        const [eno,date,code] = r;
+        const [eno, date, code] = r;
         m[`${eno}|${date}`] = code;
       });
       return m;
     }
 
-    //------------------------
-    // 3) DOM References
-    //------------------------
-    const teamSel   = document.getElementById('teamFilter'),
-          empInput  = document.getElementById('empFilter'),
-          sdInput   = document.getElementById('startDate'),
-          edInput   = document.getElementById('endDate'),
-          reloadBtn = document.getElementById('reloadBtn'),
-          ovInput   = document.getElementById('overrideFile'),
-          statusEl  = document.getElementById('status'),
-          thead     = document.getElementById('thead'),
-          tbody     = document.getElementById('tbody');
+    // 3) Cache DOM
+    const teamSel      = document.getElementById('teamFilter'),
+          empInput     = document.getElementById('empFilter'),
+          sdInput      = document.getElementById('startDate'),
+          edInput      = document.getElementById('endDate'),
+          reloadBtn    = document.getElementById('reloadBtn'),
+          ovInput      = document.getElementById('overrideFile'),
+          loadOvBtn    = document.getElementById('loadOverridesBtn'),
+          statusEl     = document.getElementById('status'),
+          thead        = document.getElementById('thead'),
+          tbody        = document.getElementById('tbody');
 
-    //------------------------
     // 4) Populate Team dropdown
-    //------------------------
     Array.from(new Set(roster.slice(1).map(r=>r[3])))
       .forEach(t=> teamSel.innerHTML += `<option>${t}</option>`);
 
-    //------------------------
-    // 5) Default Start/End = current week Mon→Sun
-    //------------------------
+    // 5) Default Start/End = this week's Mon→Sun
     const today=new Date(), dow=today.getDay(),
           mon=new Date(today), sun=new Date(today);
     mon.setDate(today.getDate() - ((dow+6)%7));
@@ -139,58 +128,61 @@
     sdInput.valueAsDate = mon;
     edInput.valueAsDate = sun;
 
-    //------------------------
-    // 6) Event wiring
-    //------------------------
-    [teamSel,empInput,sdInput,edInput].forEach(el=>
-      el.addEventListener('change', render)
-    );
+    // 6) Wire filters + reload
+    [teamSel, empInput, sdInput, edInput].forEach(el=> el.addEventListener('change', render));
     reloadBtn.addEventListener('click', render);
 
-    // when you drop an overrides file…
-    ovInput.addEventListener('change', evt=>{
-      const file = evt.target.files[0];
-      if(!file) return;
+    // 7) Load Overrides on button click
+    loadOvBtn.addEventListener('click', ()=> {
+      const file = ovInput.files[0];
+      if(!file){
+        statusEl.innerText = '⚠️ Please choose a file first';
+        return;
+      }
+      statusEl.innerText = '📥 Loading overrides…';
       const reader = new FileReader();
       reader.onload = e=>{
-        const newWb = XLSX.read(e.target.result,{type:'array'});
-        const sheet = newWb.Sheets[newWb.SheetNames[0]];
-        const data  = XLSX.utils.sheet_to_json(sheet,{header:1});
-        ovMap = buildOvMap(data);
-        render();
+        try {
+          const ovWb = XLSX.read(e.target.result, { type:'array' });
+          const sheet = ovWb.Sheets[ovWb.SheetNames[0]];
+          const data  = XLSX.utils.sheet_to_json(sheet, { header:1 });
+          ovMap = buildOvMap(data);
+          statusEl.innerText = '✅ Overrides loaded';
+          render();
+        } catch(err) {
+          console.error(err);
+          statusEl.innerText = '❌ Failed to parse overrides';
+        }
       };
+      reader.onerror = ()=>{ statusEl.innerText = '❌ File read error'; };
       reader.readAsArrayBuffer(file);
     });
 
-    // in-cell editing recolours on the fly
+    // 8) In-place editing auto-colour
     tbody.addEventListener('input', e=>{
       if(e.target.matches('td[contenteditable]')){
-        const val=e.target.innerText.trim();
-        // strip old classes
+        const v = e.target.innerText.trim();
         e.target.className = e.target.className
           .split(/\s+/)
           .filter(c=>!c.startsWith('shift-'))
           .join(' ');
-        e.target.classList.add('shift-'+val);
+        e.target.classList.add('shift-'+v);
       }
     });
 
-    //------------------------
-    // 7) Render!
-    //------------------------
+    // 9) Initial render
     render();
 
+    // —— render() ——
     function render(){
-      // gather filters
-      const [hdr,...rows]=roster,
-            team=teamSel.value,
-            empF=empInput.value.trim(),
-            sd=new Date(sdInput.value),
-            ed=new Date(edInput.value);
+      const [hdr, ...rows] = roster,
+            team = teamSel.value,
+            empF = empInput.value.trim(),
+            sd   = new Date(sdInput.value),
+            ed   = new Date(edInput.value);
 
-      // validate dates
       if(isNaN(sd)||isNaN(ed)||ed<sd){
-        statusEl.innerText = '⚠️ Please pick valid Start ≤ End dates';
+        statusEl.innerText = '⚠️ Invalid date range';
       } else {
         statusEl.innerText = '';
       }
@@ -201,52 +193,54 @@
         dates.push(new Date(d));
       }
 
-      // header row
-      let ths='<tr><th>Name</th><th>Emp No.</th><th>QUALIFICATIONS</th><th>Team</th>';
+      // header
+      let ths = '<tr><th>Name</th><th>Emp No.</th><th>QUALIFICATIONS</th><th>Team</th>';
       dates.forEach(d=>{
         const dd=String(d.getDate()).padStart(2,'0'),
               mm=String(d.getMonth()+1).padStart(2,'0');
-        ths+=`<th>${dd}/${mm}</th>`;
+        ths += `<th>${dd}/${mm}</th>`;
       });
-      ths+='</tr>';
+      ths += '</tr>';
       thead.innerHTML = ths;
 
       // rotation reference
-      const refMon=new Date(2025,5,30), msDay=1000*60*60*24;
+      const refMon = new Date(2025,5,30), msDay=1000*60*60*24;
 
-      // body rows
+      // body
       let body='';
       rows
-        .filter(r=> (!team||r[3]==team) && (!empF||String(r[1]).includes(empF)))
-        .forEach(r=>{
-          let tr=`<tr>
-            <td>${r[0]}</td>
-            <td>${r[1]}</td>
-            <td>${r[2]}</td>
-            <td>${r[3]}</td>`;
-          dates.forEach(d=>{
-            const dd=String(d.getDate()).padStart(2,'0'),
-                  mm=String(d.getMonth()+1).padStart(2,'0'),
-                  iso=`2025-${mm}-${dd}`,
-                  key=`${r[1]}|${iso}`,
-                  ov = ovMap[key];
+       .filter(r=> (!team||r[3]==team) && (!empF||String(r[1]).includes(empF)))
+       .forEach(r=>{
+         let tr = `<tr>
+           <td>${r[0]}</td>
+           <td>${r[1]}</td>
+           <td>${r[2]}</td>
+           <td>${r[3]}</td>`;
 
-            let code = ov || (() => {
-              const daysSince=Math.floor((d-refMon)/msDay),
-                    wk=(Math.floor(daysSince/7)%5)+1,
-                    dow=d.getDay()||7,
-                    pat=pattern[wk][dow];
-              return pat;
-            })();
+         dates.forEach(d=>{
+           const dd=String(d.getDate()).padStart(2,'0'),
+                 mm=String(d.getMonth()+1).padStart(2,'0'),
+                 iso=`2025-${mm}-${dd}`,
+                 key=`${r[1]}|${iso}`,
+                 ov = ovMap[key];
 
-            // strip stray weekday names
-            if(/^[A-Za-z]{3}$/.test(String(code))) code='X';
+           let code = ov||(() => {
+             const daysSince = Math.floor((d-refMon)/msDay),
+                   wk=(Math.floor(daysSince/7)%5)+1,
+                   dow=d.getDay()||7,
+                   pat=pattern[wk][dow];
+             return pat;
+           })();
 
-            tr+=`<td contenteditable="true" class="shift-${code}">${code}</td>`;
-          });
-          tr+='</tr>';
-          body+=tr;
-        });
+           if(/^[A-Za-z]{3}$/.test(String(code))) code='X';
+
+           tr += `<td contenteditable="true" class="shift-${code}">${code}</td>`;
+         });
+
+         tr += '</tr>';
+         body += tr;
+       });
+
       tbody.innerHTML = body;
     }
 
