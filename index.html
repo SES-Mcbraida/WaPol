@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Team Roster Viewer</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <!-- SheetJS for Excel parsing -->
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- SheetJS for reading Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body { font-family: Arial,sans-serif; background:#e7effa; color:#333; padding:1rem; }
@@ -57,13 +57,13 @@
       <select id="teamFilter"><option value="">All Teams</option></select>
     </label>
     <label>Emp No:
-      <input id="empFilter" type="text" placeholder="e.g. 204140">
+      <input id="empFilter" type="text" placeholder="e.g. 204140" />
     </label>
     <label>Start:
-      <input id="startDate" type="date">
+      <input id="startDate" type="date" />
     </label>
     <label>End:
-      <input id="endDate" type="date">
+      <input id="endDate" type="date" />
     </label>
     <button id="reloadBtn">Reload</button>
   </div>
@@ -77,131 +77,144 @@
   </table>
 
   <script>
-  (async ()=>{
+  (async()=>{
     try {
-      // 1) Load both Excel files from repo root
-      const [rBuf, oBuf] = await Promise.all([
+      // 1) Fetch both workbooks from root
+      const [rBuf,oBuf] = await Promise.all([
         fetch('roster_template_final.xlsx').then(r=>r.arrayBuffer()),
         fetch('overrides.xlsx').then(r=>r.arrayBuffer())
       ]);
       const rWb = XLSX.read(rBuf,{type:'array'}),
             oWb = XLSX.read(oBuf,{type:'array'}),
-            roster    = XLSX.utils.sheet_to_json(rWb.Sheets['Roster'],{header:1}),
+            roster    = XLSX.utils.sheet_to_json(rWb.Sheets['Roster'],       {header:1}),
             pattern   = XLSX.utils.sheet_to_json(rWb.Sheets['RotationPattern'],{header:1}),
             overrides = XLSX.utils.sheet_to_json(oWb.Sheets[oWb.SheetNames[0]],{header:1});
 
-      // 2) Build override lookup
+      // 2) Build override map
       const ovMap = {};
       overrides.slice(1).forEach(r=>{
-        const [eno, date, code] = r;
+        const [eno,date,code] = r;
         ovMap[`${eno}|${date}`] = code;
       });
 
-      // 3) Cache DOM elements
-      const teamSel  = document.getElementById('teamFilter'),
-            empInput = document.getElementById('empFilter'),
-            sdInput  = document.getElementById('startDate'),
-            edInput  = document.getElementById('endDate'),
-            reloadBtn= document.getElementById('reloadBtn'),
-            statusEl = document.getElementById('status');
+      // 3) Cache DOM
+      const teamSel   = document.getElementById('teamFilter'),
+            empInput  = document.getElementById('empFilter'),
+            sdInput   = document.getElementById('startDate'),
+            edInput   = document.getElementById('endDate'),
+            reloadBtn = document.getElementById('reloadBtn'),
+            statusEl  = document.getElementById('status');
 
       // 4) Populate Team dropdown
       Array.from(new Set(roster.slice(1).map(r=>r[3])))
         .forEach(t=> teamSel.innerHTML += `<option>${t}</option>`);
 
-      // 5) Default Start/End to this week's Mon→Sun
-      const today = new Date(),
-            dow   = today.getDay(),         // 0=Sun..6=Sat
-            mon   = new Date(today),
-            sun   = new Date(today);
+      // 5) Default Start/End = this week (Mon→Sun)
+      const today = new Date(), dow = today.getDay(),
+            mon   = new Date(today), sun=new Date(today);
       mon.setDate(today.getDate() - ((dow+6)%7));
-      sun.setDate(mon.getDate() + 6);
+      sun.setDate(mon.getDate()+6);
       sdInput.valueAsDate = mon;
       edInput.valueAsDate = sun;
 
-      // 6) Wire up events
-      [teamSel, empInput, sdInput, edInput].forEach(el=>
-        el.addEventListener('change', render)
-      );
-      reloadBtn.addEventListener('click', render);
+      // 6) Wire controls → render
+      [teamSel,empInput,sdInput,edInput].forEach(el=>el.addEventListener('change',render));
+      reloadBtn.addEventListener('click',render);
 
-      // 7) Initial render
+      // 7) Allow in-place editing & re-colour on-the-fly
+      document.getElementById('tbody').addEventListener('input',e=>{
+        if(e.target.matches('td[contenteditable]')){
+          const val = e.target.innerText.trim();
+          // strip any old shift- classes
+          e.target.className = e.target.className
+            .split(/\s+/)
+            .filter(c=>!c.startsWith('shift-'))
+            .join(' ');
+          // add the new one
+          e.target.classList.add('shift-'+val);
+        }
+      });
+
+      // initial table draw
       render();
 
-      // --- render() definition ---
+      // ——— RENDER FUNCTION ———
       function render(){
-        const [hdr, ...rows] = roster,
+        const [hdr,...rows] = roster,
               team = teamSel.value,
               empF = empInput.value.trim(),
               sd   = new Date(sdInput.value),
               ed   = new Date(edInput.value);
 
-        // Validate dates
-        if (isNaN(sd) || isNaN(ed) || ed < sd) {
+        // date validation
+        if(isNaN(sd)||isNaN(ed)||ed<sd){
           statusEl.innerText = '⚠️ Please pick valid Start ≤ End dates';
         } else {
           statusEl.innerText = '';
         }
 
-        // Build date list
-        const dates = [];
-        for(let d=new Date(sd); d<=ed; d.setDate(d.getDate()+1)){
+        // build date‐array
+        const dates=[];
+        for(let d=new Date(sd);d<=ed;d.setDate(d.getDate()+1)){
           dates.push(new Date(d));
         }
 
-        // Render table header
+        // header row
         let ths = '<tr><th>Name</th><th>Emp No.</th><th>QUALIFICATIONS</th><th>Team</th>';
         dates.forEach(d=>{
-          const dd = String(d.getDate()).padStart(2,'0'),
-                mm = String(d.getMonth()+1).padStart(2,'0');
+          const dd=String(d.getDate()).padStart(2,'0'),
+                mm=String(d.getMonth()+1).padStart(2,'0');
           ths += `<th>${dd}/${mm}</th>`;
         });
-        ths += '</tr>';
+        ths+='</tr>';
         document.getElementById('thead').innerHTML = ths;
 
-        // Constants for rotation lookup
+        // constants for rotation math
         const refMon = new Date(2025,5,30), // Mon 30 Jun 2025
               msDay  = 1000*60*60*24;
 
-        // Render body
-        let body = '';
+        // body rows
+        let body='';
         rows
-          .filter(r=> (!team||r[3]==team) && (!empF||String(r[1]).includes(empF)))
-          .forEach(r=>{
-            let tr = `<tr>
-              <td>${r[0]}</td>
-              <td>${r[1]}</td>
-              <td>${r[2]}</td>
-              <td>${r[3]}</td>`;
+         .filter(r=>(!team||r[3]==team) && (!empF||String(r[1]).includes(empF)))
+         .forEach(r=>{
+           let tr = `<tr>
+             <td>${r[0]}</td>
+             <td>${r[1]}</td>
+             <td>${r[2]}</td>
+             <td>${r[3]}</td>`;
 
-            dates.forEach(d=>{
-              const dd   = String(d.getDate()).padStart(2,'0'),
-                    mm   = String(d.getMonth()+1).padStart(2,'0'),
-                    iso  = `2025-${mm}-${dd}`,
-                    key  = `${r[1]}|${iso}`,
-                    ov   = ovMap[key];
+           dates.forEach(d=>{
+             const dd = String(d.getDate()).padStart(2,'0'),
+                   mm = String(d.getMonth()+1).padStart(2,'0'),
+                   iso= `2025-${mm}-${dd}`,
+                   ovKey = `${r[1]}|${iso}`,
+                   ov    = ovMap[ovKey];
 
-              let code = ov;
-              if (!ov) {
-                const daysSince = Math.floor((d - refMon)/msDay),
-                      wk  = (Math.floor(daysSince/7)%5)+1,
-                      dow = d.getDay()||7,
-                      pat = pattern[wk][dow];
-                code = pat;
-              }
-              tr += `<td class="shift-${code}">${code}</td>`;
-            });
+             let code = ov||(() => {
+               const daysSince = Math.floor((d - refMon)/msDay),
+                     wk  = (Math.floor(daysSince/7)%5)+1,
+                     dow = d.getDay()||7,
+                     pat = pattern[wk][dow];
+               return pat;
+             })();
 
-            tr += '</tr>';
-            body += tr;
-          });
+             // filter out stray weekday names if they slip in
+             if(/^[A-Za-z]{3}$/.test(String(code))) code='X';
+
+             tr += `<td contenteditable="true" class="shift-${code}">${code}</td>`;
+           });
+
+           tr += `</tr>`;
+           body += tr;
+         });
 
         document.getElementById('tbody').innerHTML = body;
       }
     }
     catch(err){
       console.error(err);
-      document.getElementById('status').innerText = '❌ Load error—see console';
+      document.getElementById('status').innerText = '❌ Load error – see console';
     }
   })();
   </script>
